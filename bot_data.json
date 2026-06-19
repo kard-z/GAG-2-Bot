@@ -2174,6 +2174,86 @@
         "target_tag": "grow_garden09",
         "reason": "cross trading",
         "timestamp": "2026-06-19T09:50:03.787465+00:00"
+      },
+      {
+        "case": 218,
+        "action": "Jail",
+        "mod_id": 1133961138791514225,
+        "mod_tag": "iamduck2667",
+        "target_id": 1396700267759665292,
+        "target_tag": "kaintzo",
+        "reason": "scamming",
+        "timestamp": "2026-06-19T10:23:22.946672+00:00"
+      },
+      {
+        "case": 219,
+        "action": "Jail",
+        "mod_id": 1133961138791514225,
+        "mod_tag": "iamduck2667",
+        "target_id": 1511246455963385981,
+        "target_tag": "shamz_7",
+        "reason": "underage",
+        "timestamp": "2026-06-19T10:35:34.913655+00:00"
+      },
+      {
+        "case": 220,
+        "action": "Jail",
+        "mod_id": 923199670380011530,
+        "mod_tag": "fbi.orion.",
+        "target_id": 1517090742781350003,
+        "target_tag": "growagarden2trading",
+        "reason": "scam",
+        "timestamp": "2026-06-19T11:01:13.536286+00:00"
+      },
+      {
+        "case": 221,
+        "action": "Warn",
+        "mod_id": 1504250425912721460,
+        "mod_tag": "x.c3rys",
+        "target_id": 1354858563239022837,
+        "target_tag": "dark079413",
+        "reason": "channel misuse",
+        "timestamp": "2026-06-19T11:09:27.882357+00:00"
+      },
+      {
+        "case": 222,
+        "action": "Jail",
+        "mod_id": 923199670380011530,
+        "mod_tag": "fbi.orion.",
+        "target_id": 1461591797225619532,
+        "target_tag": "hotchilli_pepper",
+        "reason": "sharing dupe scripts",
+        "timestamp": "2026-06-19T11:22:30.157485+00:00"
+      },
+      {
+        "case": 223,
+        "action": "Warn",
+        "mod_id": 1383799450392334593,
+        "mod_tag": "jamieloviesss",
+        "target_id": 1307823190491402333,
+        "target_tag": "jak3ytheg0at",
+        "reason": "channel misuse",
+        "timestamp": "2026-06-19T12:01:31.907255+00:00"
+      },
+      {
+        "case": 224,
+        "action": "Unmute",
+        "mod_id": 923199670380011530,
+        "mod_tag": "fbi.orion.",
+        "target_id": 1086632433354559608,
+        "target_tag": "benjicoolx",
+        "reason": "Manually unmuted",
+        "timestamp": "2026-06-19T12:14:31.277330+00:00"
+      },
+      {
+        "case": 225,
+        "action": "Jail",
+        "mod_id": 923199670380011530,
+        "mod_tag": "fbi.orion.",
+        "target_id": 1086632433354559608,
+        "target_tag": "benjicoolx",
+        "reason": "scam",
+        "timestamp": "2026-06-19T12:14:40.214121+00:00"
       }
     ]
   },
@@ -2815,12 +2895,30 @@
         "reason": "Channel misuse",
         "timestamp": "2026-06-19T03:43:24.695171+00:00"
       }
+    ],
+    "1440720657842180172:1354858563239022837": [
+      {
+        "number": 1,
+        "mod_id": 1504250425912721460,
+        "mod_tag": "x.c3rys",
+        "reason": "channel misuse",
+        "timestamp": "2026-06-19T11:09:27.862843+00:00"
+      }
+    ],
+    "1440720657842180172:1307823190491402333": [
+      {
+        "number": 1,
+        "mod_id": 1383799450392334593,
+        "mod_tag": "jamieloviesss",
+        "reason": "channel misuse",
+        "timestamp": "2026-06-19T12:01:31.846846+00:00"
+      }
     ]
   },
   "custom_commands": {
     "hi": "hello"
   },
-  "next_case": 218,
+  "next_case": 226,
   "persistent_roles": {
     "1515380125053751540:1485584014738718721": [],
     "1515380125053751540:792842038332358656": [],
@@ -2911,7 +3009,7 @@
       "Jailed"
     ],
     "1440720657842180172:1086632433354559608": [
-      "Muted"
+      "Jailed"
     ],
     "1440720657842180172:1397654379452170254": [],
     "1440720657842180172:1339582024905654315": [
@@ -2978,11 +3076,21 @@
     ],
     "1440720657842180172:1517098329505402973": [
       "Jailed"
+    ],
+    "1440720657842180172:1396700267759665292": [
+      "Jailed"
+    ],
+    "1440720657842180172:1511246455963385981": [
+      "Jailed"
+    ],
+    "1440720657842180172:1517090742781350003": [
+      "Jailed"
+    ],
+    "1440720657842180172:1461591797225619532": [
+      "Jailed"
     ]
   },
-  "mute_timers": {
-    "1440720657842180172:1086632433354559608": "2026-06-19T12:54:13.146853+00:00"
-  },
+  "mute_timers": {},
   "mod_actions": {
     "1516326756989010011:1455245036860997840": {
       "mod_tag": "kard.z",
@@ -3864,6 +3972,14 @@
           "target_id": 1515442509789003787,
           "reason": "Channel misuse",
           "timestamp": "2026-06-19T03:43:24.732968+00:00"
+        },
+        {
+          "case": 221,
+          "action": "Warn",
+          "target_tag": "dark079413",
+          "target_id": 1354858563239022837,
+          "reason": "channel misuse",
+          "timestamp": "2026-06-19T11:09:27.902321+00:00"
         }
       ]
     },
@@ -4093,6 +4209,22 @@
           "target_id": 1517098329505402973,
           "reason": "cross trading",
           "timestamp": "2026-06-19T09:50:03.807268+00:00"
+        },
+        {
+          "case": 218,
+          "action": "Jail",
+          "target_tag": "kaintzo",
+          "target_id": 1396700267759665292,
+          "reason": "scamming",
+          "timestamp": "2026-06-19T10:23:22.966923+00:00"
+        },
+        {
+          "case": 219,
+          "action": "Jail",
+          "target_tag": "shamz_7",
+          "target_id": 1511246455963385981,
+          "reason": "underage",
+          "timestamp": "2026-06-19T10:35:34.935213+00:00"
         }
       ]
     },
@@ -4236,6 +4368,38 @@
           "target_id": 1517101923302510606,
           "reason": "self-advertising",
           "timestamp": "2026-06-19T07:51:18.865783+00:00"
+        },
+        {
+          "case": 220,
+          "action": "Jail",
+          "target_tag": "growagarden2trading",
+          "target_id": 1517090742781350003,
+          "reason": "scam",
+          "timestamp": "2026-06-19T11:01:13.562789+00:00"
+        },
+        {
+          "case": 222,
+          "action": "Jail",
+          "target_tag": "hotchilli_pepper",
+          "target_id": 1461591797225619532,
+          "reason": "sharing dupe scripts",
+          "timestamp": "2026-06-19T11:22:30.177644+00:00"
+        },
+        {
+          "case": 224,
+          "action": "Unmute",
+          "target_tag": "benjicoolx",
+          "target_id": 1086632433354559608,
+          "reason": "Manually unmuted",
+          "timestamp": "2026-06-19T12:14:31.297948+00:00"
+        },
+        {
+          "case": 225,
+          "action": "Jail",
+          "target_tag": "benjicoolx",
+          "target_id": 1086632433354559608,
+          "reason": "scam",
+          "timestamp": "2026-06-19T12:14:40.236159+00:00"
         }
       ]
     },
@@ -4265,6 +4429,19 @@
           "target_id": 1282656678961090580,
           "reason": "n word",
           "timestamp": "2026-06-18T21:44:07.606645+00:00"
+        }
+      ]
+    },
+    "1440720657842180172:1383799450392334593": {
+      "mod_tag": "jamieloviesss",
+      "actions": [
+        {
+          "case": 223,
+          "action": "Warn",
+          "target_tag": "jak3ytheg0at",
+          "target_id": 1307823190491402333,
+          "reason": "channel misuse",
+          "timestamp": "2026-06-19T12:01:31.954509+00:00"
         }
       ]
     }
@@ -5398,10 +5575,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1172673003369283586": {
-      "today": 18,
-      "week": 22,
-      "month": 22,
-      "all_time": 22,
+      "today": 28,
+      "week": 32,
+      "month": 32,
+      "all_time": 32,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -5470,10 +5647,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1089116623786479667": {
-      "today": 3,
-      "week": 51,
-      "month": 51,
-      "all_time": 51,
+      "today": 8,
+      "week": 56,
+      "month": 56,
+      "all_time": 56,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -5515,10 +5692,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1470985121648611482": {
-      "today": 39,
-      "week": 52,
-      "month": 52,
-      "all_time": 52,
+      "today": 47,
+      "week": 60,
+      "month": 60,
+      "all_time": 60,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -5578,10 +5755,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1416336498847911936": {
-      "today": 1,
-      "week": 5,
-      "month": 5,
-      "all_time": 5,
+      "today": 2,
+      "week": 6,
+      "month": 6,
+      "all_time": 6,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -5650,10 +5827,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1516951755118608404": {
-      "today": 11,
-      "week": 38,
-      "month": 38,
-      "all_time": 38,
+      "today": 15,
+      "week": 42,
+      "month": 42,
+      "all_time": 42,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -5713,10 +5890,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1350295068921036830": {
-      "today": 42,
-      "week": 59,
-      "month": 59,
-      "all_time": 59,
+      "today": 46,
+      "week": 63,
+      "month": 63,
+      "all_time": 63,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -5767,10 +5944,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1385304791261122573": {
-      "today": 1,
-      "week": 11,
-      "month": 11,
-      "all_time": 11,
+      "today": 3,
+      "week": 13,
+      "month": 13,
+      "all_time": 13,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -5857,10 +6034,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1378061335694147726": {
-      "today": 12,
-      "week": 16,
-      "month": 16,
-      "all_time": 16,
+      "today": 16,
+      "week": 20,
+      "month": 20,
+      "all_time": 20,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -5965,10 +6142,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:886193608645029888": {
-      "today": 31,
-      "week": 113,
-      "month": 113,
-      "all_time": 113,
+      "today": 34,
+      "week": 116,
+      "month": 116,
+      "all_time": 116,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -6199,10 +6376,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1455450361317032110": {
-      "today": 95,
-      "week": 123,
-      "month": 123,
-      "all_time": 123,
+      "today": 119,
+      "week": 147,
+      "month": 147,
+      "all_time": 147,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -6235,10 +6412,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1472281507522547825": {
-      "today": 1,
-      "week": 40,
-      "month": 40,
-      "all_time": 40,
+      "today": 2,
+      "week": 41,
+      "month": 41,
+      "all_time": 41,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -6298,11 +6475,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1474482179890217187": {
-      "today": 38,
-      "week": 38,
-      "month": 38,
-      "all_time": 38,
-      "last_day": "2026-06-18",
+      "today": 8,
+      "week": 46,
+      "month": 46,
+      "all_time": 46,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -6361,10 +6538,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1516521174266413103": {
-      "today": 2,
-      "week": 18,
-      "month": 18,
-      "all_time": 18,
+      "today": 11,
+      "week": 27,
+      "month": 27,
+      "all_time": 27,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -6442,11 +6619,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1009833310945558598": {
-      "today": 22,
-      "week": 22,
-      "month": 22,
-      "all_time": 22,
-      "last_day": "2026-06-18",
+      "today": 1,
+      "week": 23,
+      "month": 23,
+      "all_time": 23,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -6649,19 +6826,19 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1467027930478674203": {
-      "today": 4,
-      "week": 4,
-      "month": 4,
-      "all_time": 4,
-      "last_day": "2026-06-18",
+      "today": 2,
+      "week": 6,
+      "month": 6,
+      "all_time": 6,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
     "1386212732319305880:1155409549763825734": {
-      "today": 26,
-      "week": 36,
-      "month": 36,
-      "all_time": 36,
+      "today": 47,
+      "week": 57,
+      "month": 57,
+      "all_time": 57,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -6694,10 +6871,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:923199670380011530": {
-      "today": 63,
-      "week": 228,
-      "month": 228,
-      "all_time": 228,
+      "today": 95,
+      "week": 260,
+      "month": 260,
+      "all_time": 260,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -6730,10 +6907,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1455245036860997840": {
-      "today": 21,
-      "week": 517,
-      "month": 517,
-      "all_time": 517,
+      "today": 35,
+      "week": 531,
+      "month": 531,
+      "all_time": 531,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -6784,11 +6961,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1389647183019507922": {
-      "today": 2,
-      "week": 2,
-      "month": 2,
-      "all_time": 2,
-      "last_day": "2026-06-18",
+      "today": 3,
+      "week": 5,
+      "month": 5,
+      "all_time": 5,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -6874,10 +7051,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1383799450392334593": {
-      "today": 4,
-      "week": 10,
-      "month": 10,
-      "all_time": 10,
+      "today": 18,
+      "week": 24,
+      "month": 24,
+      "all_time": 24,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -6928,10 +7105,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1500342717572714518": {
-      "today": 1,
-      "week": 19,
-      "month": 19,
-      "all_time": 19,
+      "today": 10,
+      "week": 28,
+      "month": 28,
+      "all_time": 28,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -6973,10 +7150,10 @@
       "last_month": "2026-06"
     },
     "1386212732319305880:1487350937961103472": {
-      "today": 12,
-      "week": 17,
-      "month": 17,
-      "all_time": 17,
+      "today": 22,
+      "week": 27,
+      "month": 27,
+      "all_time": 27,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -7027,10 +7204,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1354858563239022837": {
-      "today": 4,
-      "week": 5,
-      "month": 5,
-      "all_time": 5,
+      "today": 17,
+      "week": 18,
+      "month": 18,
+      "all_time": 18,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -7189,20 +7366,20 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:760605148119564318": {
-      "today": 10,
-      "week": 10,
-      "month": 10,
-      "all_time": 10,
-      "last_day": "2026-06-18",
+      "today": 1,
+      "week": 11,
+      "month": 11,
+      "all_time": 11,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
     "1440720657842180172:1419765927930757250": {
-      "today": 7,
-      "week": 7,
-      "month": 7,
-      "all_time": 7,
-      "last_day": "2026-06-18",
+      "today": 4,
+      "week": 11,
+      "month": 11,
+      "all_time": 11,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -7414,10 +7591,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1140558911775199352": {
-      "today": 1,
-      "week": 3,
-      "month": 3,
-      "all_time": 3,
+      "today": 2,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -7522,10 +7699,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1498407373931282484": {
-      "today": 12,
-      "week": 21,
-      "month": 21,
-      "all_time": 21,
+      "today": 15,
+      "week": 24,
+      "month": 24,
+      "all_time": 24,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -7567,10 +7744,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1504250425912721460": {
-      "today": 57,
-      "week": 145,
-      "month": 145,
-      "all_time": 145,
+      "today": 129,
+      "week": 217,
+      "month": 217,
+      "all_time": 217,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -7846,10 +8023,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1511246455963385981": {
-      "today": 8,
-      "week": 56,
-      "month": 56,
-      "all_time": 56,
+      "today": 33,
+      "week": 81,
+      "month": 81,
+      "all_time": 81,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -7900,11 +8077,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1231275430384767128": {
-      "today": 1,
-      "week": 1,
-      "month": 1,
-      "all_time": 1,
-      "last_day": "2026-06-18",
+      "today": 2,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -7936,20 +8113,20 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1222499196779626548": {
-      "today": 3,
-      "week": 14,
-      "month": 14,
-      "all_time": 14,
+      "today": 4,
+      "week": 15,
+      "month": 15,
+      "all_time": 15,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
     "1440720657842180172:1262050288987017377": {
-      "today": 6,
-      "week": 6,
-      "month": 6,
-      "all_time": 6,
-      "last_day": "2026-06-18",
+      "today": 2,
+      "week": 8,
+      "month": 8,
+      "all_time": 8,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -8107,11 +8284,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1322029069268946967": {
-      "today": 12,
-      "week": 12,
-      "month": 12,
-      "all_time": 12,
-      "last_day": "2026-06-18",
+      "today": 2,
+      "week": 14,
+      "month": 14,
+      "all_time": 14,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -8278,10 +8455,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1108655035434414160": {
-      "today": 6,
-      "week": 47,
-      "month": 47,
-      "all_time": 47,
+      "today": 9,
+      "week": 50,
+      "month": 50,
+      "all_time": 50,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -8296,10 +8473,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1133961138791514225": {
-      "today": 85,
-      "week": 490,
-      "month": 490,
-      "all_time": 490,
+      "today": 138,
+      "week": 543,
+      "month": 543,
+      "all_time": 543,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -8332,10 +8509,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:947113644527853641": {
-      "today": 3,
-      "week": 29,
-      "month": 29,
-      "all_time": 29,
+      "today": 30,
+      "week": 56,
+      "month": 56,
+      "all_time": 56,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -8665,11 +8842,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1322428763018891298": {
-      "today": 4,
-      "week": 4,
-      "month": 4,
-      "all_time": 4,
-      "last_day": "2026-06-18",
+      "today": 6,
+      "week": 10,
+      "month": 10,
+      "all_time": 10,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -8809,11 +8986,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1381823369347076206": {
-      "today": 13,
-      "week": 13,
-      "month": 13,
-      "all_time": 13,
-      "last_day": "2026-06-18",
+      "today": 2,
+      "week": 15,
+      "month": 15,
+      "all_time": 15,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -9098,10 +9275,10 @@
     },
     "1440720657842180172:1341818266934444085": {
       "today": 1,
-      "week": 1,
-      "month": 1,
-      "all_time": 1,
-      "last_day": "2026-06-18",
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -9151,10 +9328,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1343927777128349807": {
-      "today": 4,
-      "week": 14,
-      "month": 14,
-      "all_time": 14,
+      "today": 6,
+      "week": 16,
+      "month": 16,
+      "all_time": 16,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -9187,11 +9364,11 @@
       "last_month": "2026-06"
     },
     "1386212732319305880:1198491839494357004": {
-      "today": 4,
-      "week": 4,
-      "month": 4,
-      "all_time": 4,
-      "last_day": "2026-06-18",
+      "today": 13,
+      "week": 17,
+      "month": 17,
+      "all_time": 17,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -9313,11 +9490,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1500090821851222056": {
-      "today": 162,
-      "week": 162,
-      "month": 162,
-      "all_time": 162,
-      "last_day": "2026-06-18",
+      "today": 19,
+      "week": 181,
+      "month": 181,
+      "all_time": 181,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -9358,10 +9535,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1172696731704635396": {
-      "today": 14,
-      "week": 31,
-      "month": 31,
-      "all_time": 31,
+      "today": 19,
+      "week": 36,
+      "month": 36,
+      "all_time": 36,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -9457,10 +9634,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:664435528028127242": {
-      "today": 9,
-      "week": 23,
-      "month": 23,
-      "all_time": 23,
+      "today": 11,
+      "week": 25,
+      "month": 25,
+      "all_time": 25,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -9610,10 +9787,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1089514261853765682": {
-      "today": 66,
-      "week": 91,
-      "month": 91,
-      "all_time": 91,
+      "today": 85,
+      "week": 110,
+      "month": 110,
+      "all_time": 110,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -9772,11 +9949,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1432001980712226948": {
-      "today": 62,
-      "week": 62,
-      "month": 62,
-      "all_time": 62,
-      "last_day": "2026-06-18",
+      "today": 2,
+      "week": 64,
+      "month": 64,
+      "all_time": 64,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -9970,11 +10147,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1406007432953593990": {
-      "today": 3,
-      "week": 3,
-      "month": 3,
-      "all_time": 3,
-      "last_day": "2026-06-18",
+      "today": 28,
+      "week": 31,
+      "month": 31,
+      "all_time": 31,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -10150,11 +10327,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1358484788725551374": {
-      "today": 4,
-      "week": 4,
-      "month": 4,
-      "all_time": 4,
-      "last_day": "2026-06-18",
+      "today": 3,
+      "week": 7,
+      "month": 7,
+      "all_time": 7,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -10168,10 +10345,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1516770537123090533": {
-      "today": 2,
-      "week": 17,
-      "month": 17,
-      "all_time": 17,
+      "today": 4,
+      "week": 19,
+      "month": 19,
+      "all_time": 19,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -10411,11 +10588,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1517146086631014442": {
-      "today": 5,
-      "week": 5,
-      "month": 5,
-      "all_time": 5,
-      "last_day": "2026-06-18",
+      "today": 7,
+      "week": 12,
+      "month": 12,
+      "all_time": 12,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -10483,10 +10660,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1517178229272608870": {
-      "today": 31,
-      "week": 54,
-      "month": 54,
-      "all_time": 54,
+      "today": 34,
+      "week": 57,
+      "month": 57,
+      "all_time": 57,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -11086,10 +11263,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1134008623522127892": {
-      "today": 35,
-      "week": 107,
-      "month": 107,
-      "all_time": 107,
+      "today": 59,
+      "week": 131,
+      "month": 131,
+      "all_time": 131,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -11311,10 +11488,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:985574801877905438": {
-      "today": 1,
-      "week": 12,
-      "month": 12,
-      "all_time": 12,
+      "today": 15,
+      "week": 26,
+      "month": 26,
+      "all_time": 26,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -11410,11 +11587,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1204025120700764170": {
-      "today": 4,
-      "week": 4,
-      "month": 4,
-      "all_time": 4,
-      "last_day": "2026-06-18",
+      "today": 1,
+      "week": 5,
+      "month": 5,
+      "all_time": 5,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -11563,11 +11740,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:592019848888975368": {
-      "today": 4,
-      "week": 4,
-      "month": 4,
-      "all_time": 4,
-      "last_day": "2026-06-18",
+      "today": 1,
+      "week": 5,
+      "month": 5,
+      "all_time": 5,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -11590,10 +11767,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1516929013275295806": {
-      "today": 94,
-      "week": 134,
-      "month": 134,
-      "all_time": 134,
+      "today": 151,
+      "week": 191,
+      "month": 191,
+      "all_time": 191,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -11752,11 +11929,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1515269766246563862": {
-      "today": 29,
-      "week": 29,
-      "month": 29,
-      "all_time": 29,
-      "last_day": "2026-06-18",
+      "today": 33,
+      "week": 62,
+      "month": 62,
+      "all_time": 62,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -11914,11 +12091,11 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1272672644021489736": {
-      "today": 13,
-      "week": 13,
-      "month": 13,
-      "all_time": 13,
-      "last_day": "2026-06-18",
+      "today": 9,
+      "week": 22,
+      "month": 22,
+      "all_time": 22,
+      "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
@@ -12292,10 +12469,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1516086419012059136": {
-      "today": 121,
-      "week": 121,
-      "month": 121,
-      "all_time": 121,
+      "today": 137,
+      "week": 137,
+      "month": 137,
+      "all_time": 137,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -12616,10 +12793,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1489082498922320033": {
-      "today": 2,
-      "week": 2,
-      "month": 2,
-      "all_time": 2,
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -12733,10 +12910,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1376526693904154705": {
-      "today": 1,
-      "week": 1,
-      "month": 1,
-      "all_time": 1,
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -13147,10 +13324,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:996637304133267456": {
-      "today": 3,
-      "week": 3,
-      "month": 3,
-      "all_time": 3,
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -13192,10 +13369,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1423572839864471622": {
-      "today": 5,
-      "week": 5,
-      "month": 5,
-      "all_time": 5,
+      "today": 7,
+      "week": 7,
+      "month": 7,
+      "all_time": 7,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -13210,10 +13387,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1262378317592395917": {
-      "today": 13,
-      "week": 13,
-      "month": 13,
-      "all_time": 13,
+      "today": 15,
+      "week": 15,
+      "month": 15,
+      "all_time": 15,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -13228,10 +13405,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1359806923834265762": {
-      "today": 2,
-      "week": 2,
-      "month": 2,
-      "all_time": 2,
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -13390,10 +13567,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:762461938117771325": {
-      "today": 64,
-      "week": 64,
-      "month": 64,
-      "all_time": 64,
+      "today": 102,
+      "week": 102,
+      "month": 102,
+      "all_time": 102,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -13525,10 +13702,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1517399920183607348": {
-      "today": 19,
-      "week": 19,
-      "month": 19,
-      "all_time": 19,
+      "today": 21,
+      "week": 21,
+      "month": 21,
+      "all_time": 21,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -13777,10 +13954,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:764384650017636362": {
-      "today": 5,
-      "week": 5,
-      "month": 5,
-      "all_time": 5,
+      "today": 7,
+      "week": 7,
+      "month": 7,
+      "all_time": 7,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -13813,10 +13990,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1515992954597150832": {
-      "today": 3,
-      "week": 3,
-      "month": 3,
-      "all_time": 3,
+      "today": 6,
+      "week": 6,
+      "month": 6,
+      "all_time": 6,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -13885,10 +14062,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1476556115859996682": {
-      "today": 18,
-      "week": 18,
-      "month": 18,
-      "all_time": 18,
+      "today": 24,
+      "week": 24,
+      "month": 24,
+      "all_time": 24,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -14029,10 +14206,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1392813753753534486": {
-      "today": 8,
-      "week": 8,
-      "month": 8,
-      "all_time": 8,
+      "today": 11,
+      "week": 11,
+      "month": 11,
+      "all_time": 11,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -14047,10 +14224,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1460656159252942940": {
-      "today": 32,
-      "week": 32,
-      "month": 32,
-      "all_time": 32,
+      "today": 33,
+      "week": 33,
+      "month": 33,
+      "all_time": 33,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -14155,10 +14332,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1408475726520254661": {
-      "today": 28,
-      "week": 28,
-      "month": 28,
-      "all_time": 28,
+      "today": 33,
+      "week": 33,
+      "month": 33,
+      "all_time": 33,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -14209,28 +14386,28 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1517436103915737197": {
-      "today": 16,
-      "week": 16,
-      "month": 16,
-      "all_time": 16,
+      "today": 17,
+      "week": 17,
+      "month": 17,
+      "all_time": 17,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
     "1440720657842180172:1413748241182228581": {
-      "today": 6,
-      "week": 6,
-      "month": 6,
-      "all_time": 6,
+      "today": 8,
+      "week": 8,
+      "month": 8,
+      "all_time": 8,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
     "1440720657842180172:1395079620734222346": {
-      "today": 13,
-      "week": 13,
-      "month": 13,
-      "all_time": 13,
+      "today": 17,
+      "week": 17,
+      "month": 17,
+      "all_time": 17,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -14353,10 +14530,10 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1206310732896018534": {
-      "today": 2,
-      "week": 2,
-      "month": 2,
-      "all_time": 2,
+      "today": 15,
+      "week": 15,
+      "month": 15,
+      "all_time": 15,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -14371,19 +14548,19 @@
       "last_month": "2026-06"
     },
     "1440720657842180172:1203074652168130586": {
-      "today": 2,
-      "week": 2,
-      "month": 2,
-      "all_time": 2,
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
     },
     "1440720657842180172:1489273322738028706": {
-      "today": 17,
-      "week": 17,
-      "month": 17,
-      "all_time": 17,
+      "today": 47,
+      "week": 47,
+      "month": 47,
+      "all_time": 47,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
@@ -14402,6 +14579,528 @@
       "week": 2,
       "month": 2,
       "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1448237187261923499": {
+      "today": 13,
+      "week": 13,
+      "month": 13,
+      "all_time": 13,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1517080472008527913": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1315245379775889472": {
+      "today": 8,
+      "week": 8,
+      "month": 8,
+      "all_time": 8,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1453792690628984882": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1517157285951180996": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1340626671384137829": {
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1511695305392001177": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1087252119884673055": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1511005771775611011": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1386212732319305880:1385967701314375770": {
+      "today": 6,
+      "week": 6,
+      "month": 6,
+      "all_time": 6,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1104745861856108655": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1239881820452032644": {
+      "today": 7,
+      "week": 7,
+      "month": 7,
+      "all_time": 7,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1101248381722050572": {
+      "today": 5,
+      "week": 5,
+      "month": 5,
+      "all_time": 5,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1517088518021714044": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:645408381955342367": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1377712755498422283": {
+      "today": 7,
+      "week": 7,
+      "month": 7,
+      "all_time": 7,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1361591272275447959": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1145004116007997440": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:957715913979871263": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:926701908654186518": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1309200073770663960": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1390796597725495417": {
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1501546360468668566": {
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1424274062288355430": {
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:924253104793346098": {
+      "today": 10,
+      "week": 10,
+      "month": 10,
+      "all_time": 10,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1161318201993482301": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1517479976402817084": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1260898747752251423": {
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1418900582961250335": {
+      "today": 25,
+      "week": 25,
+      "month": 25,
+      "all_time": 25,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:434644592109944845": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1243054809997774919": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1313879776942882827": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1280235607720853587": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:918799961729171496": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1070782789303152670": {
+      "today": 7,
+      "week": 7,
+      "month": 7,
+      "all_time": 7,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1461591797225619532": {
+      "today": 12,
+      "week": 12,
+      "month": 12,
+      "all_time": 12,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1260357278825971783": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1092560424534278275": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1395794204600303617": {
+      "today": 5,
+      "week": 5,
+      "month": 5,
+      "all_time": 5,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1339599526180294770": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:852435040213925898": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1517448810807165025": {
+      "today": 5,
+      "week": 5,
+      "month": 5,
+      "all_time": 5,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1292361251774660670": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1370134782138126528": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1274072619695603844": {
+      "today": 3,
+      "week": 3,
+      "month": 3,
+      "all_time": 3,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1515381174917398688": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1438196087751049307": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1423589231451967491": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1386461690907988011": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1308862237888348221": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1307823190491402333": {
+      "today": 7,
+      "week": 7,
+      "month": 7,
+      "all_time": 7,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1373727390806577324": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1252545283074691174": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1501452598040072310": {
+      "today": 2,
+      "week": 2,
+      "month": 2,
+      "all_time": 2,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1475475716933156895": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1517397708699209793": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1461782840894292152": {
+      "today": 4,
+      "week": 4,
+      "month": 4,
+      "all_time": 4,
+      "last_day": "2026-06-19",
+      "last_week": "2026-24",
+      "last_month": "2026-06"
+    },
+    "1440720657842180172:1388104022552088626": {
+      "today": 1,
+      "week": 1,
+      "month": 1,
+      "all_time": 1,
       "last_day": "2026-06-19",
       "last_week": "2026-24",
       "last_month": "2026-06"
