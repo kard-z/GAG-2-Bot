@@ -32,7 +32,7 @@ TOKEN                = os.getenv("DISCORD_TOKEN")
 
 PREFIX               = "."
 
-MOD_LOG_CHANNEL_NAME  = "staff-logs"
+MOD_LOG_CHANNEL_NAME  = "🛡️┃staff-logs"
 
 AUTO_LOG_CHANNEL_NAME = "mod-logs"
 
