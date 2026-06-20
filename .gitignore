@@ -1,1 +1,6 @@
 .env
+bot_data.json
+bot_data.json.bak
+bot.lock
+__pycache__/
+*.pyc
