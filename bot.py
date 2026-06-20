@@ -8,6 +8,10 @@ import json
 
 import os
 
+import tempfile
+
+import time
+
 import re
 
 import asyncio
@@ -752,29 +756,55 @@ async def dm_member(member, action: str, guild_name: str, reason: str,
 
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _default_data() -> dict:
+
+    return {
+
+        "cases": {}, "warns": {}, "custom_commands": {},
+
+        "next_case": 1, "persistent_roles": {}, "mute_timers": {},
+
+        "mod_actions": {}, "afk": {}, "cmd_roles": {}, "giveaways": {},
+
+        "setup_done": {}, "channel_whitelist": {}, "message_stats": {},
+
+        "jail_requests": {}, "jail_request_channel": {}, "next_jreq": 1,
+
+        "appeal_roles": {}
+
+    }
+
+_last_load_failed = False
+
 def load_data() -> dict:
+
+    global _last_load_failed
 
     if not os.path.exists(DATA_FILE):
 
-        return {
+        _last_load_failed = False  # no file yet is expected on first run, not a failure
 
-            "cases": {}, "warns": {}, "custom_commands": {},
+        return _default_data()
 
-            "next_case": 1, "persistent_roles": {}, "mute_timers": {},
+    try:
 
-            "mod_actions": {}, "afk": {}, "cmd_roles": {}, "giveaways": {},
+        with open(DATA_FILE, "r") as f:
 
-            "setup_done": {}, "channel_whitelist": {}, "message_stats": {},
+            data = json.load(f)
 
-            "jail_requests": {}, "jail_request_channel": {}, "next_jreq": 1,
+    except (json.JSONDecodeError, ValueError):
 
-            "appeal_roles": {}
+        # File was caught mid-write by a concurrent save_data() call, or is corrupted.
 
-        }
+        # Fall back to defaults instead of crashing on_message every time.
 
-    with open(DATA_FILE, "r") as f:
+        print(f"[load_data] WARNING: {DATA_FILE} could not be parsed, using defaults for this call.")
 
-        data = json.load(f)
+        _last_load_failed = True
+
+        return _default_data()
+
+    _last_load_failed = False
 
     for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles"):
 
@@ -790,9 +820,89 @@ def load_data() -> dict:
 
 def save_data(data: dict):
 
-    with open(DATA_FILE, "w") as f:
+    # Safety net: refuse to persist data that came from a failed load_data()
 
-        json.dump(data, f, indent=2)
+    # parse (i.e. defaults), so a transient read glitch can never silently
+
+    # wipe real data on disk. Unlike a heuristic on field contents, this
+
+    # can'"'"'t false-positive on a legitimately empty/new server.
+
+    global _last_load_failed
+
+    if _last_load_failed and os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 200:
+
+        print(f"[save_data] REFUSED: last load_data() call failed to parse {DATA_FILE}; refusing to save possibly-default data. Skipping save to avoid data loss.")
+
+        return
+
+    # Keep a rolling backup of the last known-good file before overwriting,
+
+    # so accidental bad saves are always recoverable.
+
+    if os.path.exists(DATA_FILE):
+
+        try:
+
+            import shutil
+
+            shutil.copyfile(DATA_FILE, DATA_FILE + ".bak")
+
+        except OSError:
+
+            pass
+
+    # Atomic write: write to a temp file, then os.replace() into place.
+
+    # This prevents other coroutines' load_data() calls from ever reading
+
+    # a half-written / truncated file.
+
+    dir_name = os.path.dirname(os.path.abspath(DATA_FILE)) or "."
+
+    fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+
+    try:
+
+        with os.fdopen(fd, "w") as f:
+
+            json.dump(data, f, indent=2)
+
+        # On Windows, os.replace() can transiently fail with PermissionError
+
+        # (WinError 5) if antivirus/cloud-sync briefly locks the destination
+
+        # file. Retry a few times with a short backoff before giving up.
+
+        last_err = None
+
+        for attempt in range(5):
+
+            try:
+
+                os.replace(tmp_path, DATA_FILE)
+
+                last_err = None
+
+                break
+
+            except PermissionError as e:
+
+                last_err = e
+
+                time.sleep(0.05 * (attempt + 1))
+
+        if last_err is not None:
+
+            raise last_err
+
+    except Exception:
+
+        if os.path.exists(tmp_path):
+
+            os.remove(tmp_path)
+
+        raise
 
 def get_appeal_role_id(guild_id: int) -> int | None:
 
@@ -8783,5 +8893,56 @@ if not TOKEN:
 
         "DISCORD_TOKEN=your_token_here\n")
 
+# ══════════════════════════════════════════════════════════════════════════════
+
+#  SINGLE-INSTANCE LOCK
+
+#  Prevents two copies of this bot (e.g. from a stale debug session that
+
+#  wasn't stopped before starting a new one) from running at once and
+
+#  racing each other on bot_data.json.
+
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Cross-platform single-instance lock via a bound TCP socket on localhost.
+
+# The OS guarantees only one process can hold this port, and it is
+
+# automatically released the moment this process exits or crashes --
+
+# no PID bookkeeping needed (which doesn'"'"'t behave the same on Windows).
+
+import socket
+
+_SINGLE_INSTANCE_PORT = 51762  # arbitrary unused local port for this bot
+
+def _acquire_single_instance_lock():
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+
+        sock.bind(("127.0.0.1", _SINGLE_INSTANCE_PORT))
+
+        sock.listen(1)
+
+    except OSError:
+
+        raise SystemExit(
+
+            "Another instance of this bot is already running "
+
+            f"(local lock port {_SINGLE_INSTANCE_PORT} is in use).\n"
+
+            "Stop it (Shift+F5 in VS Code, or close that terminal/process) before starting a new one.")
+
+    # Keep a reference so the socket isn'"'"'t garbage-collected (which would
+
+    # release the lock). It closes automatically when the process exits.
+
+    globals()["_single_instance_socket"] = sock
+
+_acquire_single_instance_lock()
 
 bot.run(TOKEN)
