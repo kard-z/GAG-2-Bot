@@ -1,5 +1,9 @@
 .env
+stocks/.env
 bot_data.db
 bot_data.json
 bot_data.json.bak
 bot.lock
+expressions.txt
+__pycache__/
+*.pyc
