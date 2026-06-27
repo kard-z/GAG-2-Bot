@@ -768,7 +768,7 @@ def _default_data() -> dict:
 
         "jail_requests": {}, "jail_request_channel": {}, "next_jreq": 1,
 
-        "appeal_roles": {}, "dwc_roles": {}
+        "appeal_roles": {}, "dwc_roles": {}, "vouches": {}, "scam_vouches": {}
 
     }
 
@@ -839,7 +839,7 @@ def load_data() -> dict:
         data["_load_failed"] = True
         return data
 
-    for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles"):
+    for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles", "vouches", "scam_vouches"):
         if key not in data:
             data[key] = {}
     if "next_jreq" not in data:
@@ -3786,6 +3786,16 @@ PERM_CATEGORIES = {
 
     },
 
+    "🏅  Vouch System": {
+
+        "emoji": "🏅",
+
+        "description": "Vouch, scam reports and staff-only vouch management",
+
+        "commands": ["addvouch", "removevouch", "vouch", "scamvouch", "vouches"],
+
+    },
+
     "🚫  Channel Whitelist": {
 
         "emoji": "🚫",
@@ -3840,6 +3850,8 @@ COMMAND_EMOJIS = {
     "jail": "🔒", "unjail": "🔓", "jreq": "🚨", "purge": "🗑️", "purgeuser": "🧹", "w": "👤", "role": "🎭",
 
     "addcmd": "➕", "delcmd": "➖", "listcmds": "📃", "afk": "💤", "setup": "⚙️", "rappeal": "🎯", "dwc": "🏷️", "rdwc": "🏷️",
+
+    "addvouch": "🏅", "removevouch": "🗑️", "vouch": "✅", "scamvouch": "🚨", "vouches": "📋",
 
     "giveaway create": "🎉", "giveaway end": "🏁", "giveaway reroll": "🔁", "giveaway delete": "❌", "giveaway list": "📜",
 
@@ -6431,6 +6443,234 @@ async def listcmds_cmd(ctx):
         if cmds else "No custom commands set up yet.")
 
     await ctx.send(embed=embed)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  VOUCH SYSTEM
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _add_vouch_entry(data: dict, gid: str, uid: str, voucher_id: int, voucher_tag: str, note: str):
+    data.setdefault("vouches", {}).setdefault(gid, {}).setdefault(uid, [])
+    data["vouches"][gid][uid].append({
+        "voucher_id":  voucher_id,
+        "voucher_tag": voucher_tag,
+        "note":        note,
+        "timestamp":   datetime.now(timezone.utc).isoformat(),
+    })
+
+# .addvouch — staff-only, manually adds N vouches to a user
+@bot.command(name="addvouch")
+@require_cmd_role("addvouch")
+async def addvouch_cmd(ctx, member: discord.Member = None, amount: int = 1, *, note: str = "Manual vouch by staff"):
+    if not member:
+        return await ctx.send(embed=error_embed("Usage: `.addvouch @user [amount] [note]`"))
+    if amount < 1 or amount > 100:
+        return await ctx.send(embed=error_embed("Amount must be between 1 and 100."))
+    data = load_data()
+    gid  = str(ctx.guild.id)
+    uid  = str(member.id)
+    for _ in range(amount):
+        _add_vouch_entry(data, gid, uid, ctx.author.id, str(ctx.author), note)
+    save_data(data)
+    total = len(data["vouches"][gid][uid])
+    embed = discord.Embed(
+        description=f"🏅 Added **{amount}** vouch{'es' if amount != 1 else ''} to **{member.display_name}** — they now have **{total}** total.",
+        color=discord.Color.green(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    embed.set_footer(text=f"Done by {ctx.author}", icon_url=ctx.author.display_avatar.url)
+    await ctx.send(embed=embed)
+
+@addvouch_cmd.error
+async def addvouch_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        return
+    if isinstance(error, (commands.MemberNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Usage: `.addvouch @user [amount] [note]`"))
+
+# .removevouch — staff-only, removes N vouches from a user (most recent first)
+@bot.command(name="removevouch")
+@require_cmd_role("removevouch")
+async def removevouch_cmd(ctx, member: discord.Member = None, amount: int = 1):
+    if not member:
+        return await ctx.send(embed=error_embed("Usage: `.removevouch @user <amount>`"))
+    if amount < 1:
+        return await ctx.send(embed=error_embed("Amount must be at least 1."))
+
+    data = load_data()
+    gid  = str(ctx.guild.id)
+    uid  = str(member.id)
+    vouch_list = data.get("vouches", {}).get(gid, {}).get(uid, [])
+
+    if not vouch_list:
+        return await ctx.send(embed=error_embed(f"**{member.display_name}** doesn't have any vouches to remove."))
+
+    removed = min(amount, len(vouch_list))
+    del vouch_list[-removed:]
+    save_data(data)
+    total = len(vouch_list)
+
+    embed = discord.Embed(
+        description=(
+            f"🗑️ Removed **{removed}** vouch{'es' if removed != 1 else ''} from **{member.display_name}** "
+            f"— they now have **{total}** total."
+        ),
+        color=discord.Color.orange(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    if removed < amount:
+        embed.add_field(name="Note", value=f"Only {removed} vouch{'es' if removed != 1 else ''} existed, so that's all that could be removed.", inline=False)
+    embed.set_footer(text=f"Done by {ctx.author}", icon_url=ctx.author.display_avatar.url)
+    await ctx.send(embed=embed)
+
+@removevouch_cmd.error
+async def removevouch_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        return
+    if isinstance(error, (commands.MemberNotFound, commands.BadArgument, commands.MissingRequiredArgument)):
+        await ctx.send(embed=error_embed("Usage: `.removevouch @user <amount>`"))
+
+@bot.tree.command(name="removevouch", description="[Staff] Remove a number of vouches from a user")
+@app_commands.describe(member="User to remove vouches from", amount="Number of vouches to remove")
+@slash_cmd_role("removevouch")
+async def removevouch_slash(interaction: discord.Interaction, member: discord.Member, amount: int = 1):
+    if amount < 1:
+        return await interaction.response.send_message(embed=error_embed("Amount must be at least 1."), ephemeral=True)
+
+    data = load_data()
+    gid  = str(interaction.guild.id)
+    uid  = str(member.id)
+    vouch_list = data.get("vouches", {}).get(gid, {}).get(uid, [])
+
+    if not vouch_list:
+        return await interaction.response.send_message(
+            embed=error_embed(f"**{member.display_name}** doesn't have any vouches to remove."), ephemeral=True)
+
+    removed = min(amount, len(vouch_list))
+    del vouch_list[-removed:]
+    save_data(data)
+    total = len(vouch_list)
+
+    embed = discord.Embed(
+        description=(
+            f"🗑️ Removed **{removed}** vouch{'es' if removed != 1 else ''} from **{member.display_name}** "
+            f"— they now have **{total}** total."
+        ),
+        color=discord.Color.orange(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    if removed < amount:
+        embed.add_field(name="Note", value=f"Only {removed} vouch{'es' if removed != 1 else ''} existed, so that's all that could be removed.", inline=False)
+    embed.set_footer(text=f"Done by {interaction.user}", icon_url=interaction.user.display_avatar.url)
+    await interaction.response.send_message(embed=embed)
+
+@removevouch_slash.error
+async def removevouch_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure): await slash_silent_fail(interaction)
+
+# .vouch — anyone can vouch
+@bot.command(name="vouch")
+@require_cmd_role("vouch")
+async def vouch_cmd(ctx, member: discord.Member = None, *, note: str = ""):
+    if not member:
+        return await ctx.send(embed=error_embed("Usage: `.vouch @user [note]`"))
+    if member.id == ctx.author.id:
+        return await ctx.send(embed=error_embed("You can't vouch for yourself."))
+    data = load_data()
+    gid  = str(ctx.guild.id)
+    uid  = str(member.id)
+    _add_vouch_entry(data, gid, uid, ctx.author.id, str(ctx.author), note)
+    save_data(data)
+    total = len(data["vouches"][gid][uid])
+    embed = discord.Embed(
+        description=f"✅ A vouch has been added for **{member.display_name}** — they now have **{total}** total vouch{'es' if total != 1 else ''}.",
+        color=discord.Color.green(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    await ctx.send(embed=embed)
+
+@vouch_cmd.error
+async def vouch_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        return
+    if isinstance(error, (commands.MemberNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Member not found. Mention them with @user."))
+
+# .scamvouch — anyone can file a scam report
+@bot.command(name="scamvouch")
+@require_cmd_role("scamvouch")
+async def scamvouch_cmd(ctx, member: discord.Member = None, *, note: str = ""):
+    if not member:
+        return await ctx.send(embed=error_embed("Usage: `.scamvouch @user [note]`"))
+    if member.id == ctx.author.id:
+        return await ctx.send(embed=error_embed("You can't scam-vouch yourself."))
+    data = load_data()
+    gid  = str(ctx.guild.id)
+    uid  = str(member.id)
+    data.setdefault("scam_vouches", {}).setdefault(gid, {}).setdefault(uid, [])
+    data["scam_vouches"][gid][uid].append({
+        "reporter_id":  ctx.author.id,
+        "reporter_tag": str(ctx.author),
+        "note":         note,
+        "timestamp":    datetime.now(timezone.utc).isoformat(),
+    })
+    save_data(data)
+    total = len(data["scam_vouches"][gid][uid])
+    embed = discord.Embed(
+        description=f"🚨 A scam report has been filed for **{member.display_name}** — they now have **{total}** scam report{'s' if total != 1 else ''} on record.",
+        color=discord.Color.red(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    await ctx.send(embed=embed)
+
+@scamvouch_cmd.error
+async def scamvouch_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        return
+    if isinstance(error, (commands.MemberNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Member not found. Mention them with @user."))
+
+# .vouches — anyone can view
+@bot.command(name="vouches")
+async def vouches_cmd(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    data   = load_data()
+    gid    = str(ctx.guild.id)
+    uid    = str(member.id)
+
+    vouch_list = data.get("vouches", {}).get(gid, {}).get(uid, [])
+    scam_list  = data.get("scam_vouches", {}).get(gid, {}).get(uid, [])
+
+    total_vouches   = len(vouch_list)
+    total_scams     = len(scam_list)
+    unique_vouchers = len({v["voucher_id"] for v in vouch_list})
+
+    embed = discord.Embed(
+        title="Vouch Profile",
+        color=discord.Color.blurple(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    embed.set_author(name=str(member), icon_url=member.display_avatar.url)
+    embed.set_thumbnail(url=member.display_avatar.url)
+
+    embed.add_field(name="🏅 Vouches",         value=str(total_vouches),   inline=True)
+    embed.add_field(name="⭐ Unique Vouchers",  value=str(unique_vouchers), inline=True)
+    if total_scams > 0:
+        reporters = ", ".join({v["reporter_tag"] for v in scam_list})
+        embed.add_field(
+            name=f"🔴 Scam Reports — {total_scams} flagged",
+            value=reporters or "N/A",
+            inline=False,
+        )
+    else:
+        embed.add_field(name="🔴 Scam Reports", value="None", inline=True)
+
+    embed.set_footer(text="Vouch System")
+    await ctx.send(embed=embed)
+
+@vouches_cmd.error
+async def vouches_cmd_error(ctx, error):
+    if isinstance(error, (commands.MemberNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Member not found. Mention them with @user."))
 
 @bot.command(name="role")
 
@@ -9167,6 +9407,20 @@ async def help_cmd(ctx):
 
         "`ping` `.ping` — Bot latency"), inline=False)
 
+    embed.add_field(name="🏅  Vouch System — Configurable per role", value=(
+
+        "`addvouch` `.addvouch @user [amount] [note]` — Staff: manually add vouches to a user\n"
+
+        "`removevouch` `.removevouch @user <amount>` — Staff: remove vouches from a user\n"
+
+        "`/removevouch` `/removevouch @user <amount>` — Same as above (slash version)\n"
+
+        "`vouch` `.vouch @user [note]` — Add a vouch for a user\n"
+
+        "`scamvouch` `.scamvouch @user [note]` — File a scam report against a user\n"
+
+        "`vouches` `.vouches [@user]` — View a user's vouch profile"), inline=False)
+
     embed.add_field(name="⚙️  Setup — Head Executives / Admin", value=(
 
         "`setup` `.setup` — Create log channels and roles\n"
@@ -9204,6 +9458,170 @@ async def sysinfo_cmd(ctx):
     embed.add_field(name="Guilds", value=str(len(bot.guilds)), inline=True)
     embed.add_field(name="Cached Members", value=str(sum(g.member_count for g in bot.guilds)), inline=True)
     await ctx.send(embed=embed)
+
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  SPLIT OR STEAL
+# ══════════════════════════════════════════════════════════════════════════════
+
+SOS_DECISION_SECONDS = 30
+
+class SplitOrStealGame:
+    def __init__(self, player1: discord.Member, player2: discord.Member):
+        self.player1 = player1
+        self.player2 = player2
+        self.choices: dict[int, str] = {}
+        self.message: discord.Message | None = None
+        self.finished = False
+
+    def status_line(self) -> str:
+        def mark(uid):
+            return "🔒 Locked In" if uid in self.choices else "🤔 Deciding..."
+        return (f"{self.player1.mention} — {mark(self.player1.id)}\n"
+                f"{self.player2.mention} — {mark(self.player2.id)}")
+
+    def build_embed(self, *, timed_out=False, result=False) -> discord.Embed:
+        if result:
+            c1 = self.choices.get(self.player1.id, "steal")
+            c2 = self.choices.get(self.player2.id, "steal")
+
+            if c1 == "split" and c2 == "split":
+                desc = "🤝 Both players chose to **Split**! Everybody wins."
+                color = discord.Color.green()
+            elif c1 == "steal" and c2 == "steal":
+                desc = "💀 Both players chose to **Steal**! Nobody wins."
+                color = discord.Color.red()
+            elif c1 == "steal":
+                desc = f"😈 {self.player1.mention} **Stole** while {self.player2.mention} tried to Split.\n{self.player1.mention} takes it all!"
+                color = discord.Color.orange()
+            else:
+                desc = f"😈 {self.player2.mention} **Stole** while {self.player1.mention} tried to Split.\n{self.player2.mention} takes it all!"
+                color = discord.Color.orange()
+
+            embed = discord.Embed(
+                title="🎲 Split or Steal — Result",
+                description=desc,
+                color=color,
+                timestamp=datetime.now(timezone.utc))
+            embed.add_field(
+                name="Choices",
+                value=f"{self.player1.mention}: **{c1.capitalize()}**\n{self.player2.mention}: **{c2.capitalize()}**",
+                inline=False)
+            return embed
+
+        if timed_out:
+            embed = discord.Embed(
+                title="🎲 Split or Steal — Timed Out",
+                description="⌛ The decision time ran out before both players locked in a choice.",
+                color=discord.Color.dark_gray(),
+                timestamp=datetime.now(timezone.utc))
+            embed.add_field(name="Status", value=self.status_line(), inline=False)
+            return embed
+
+        embed = discord.Embed(
+            title="🎲 Split or Steal",
+            description=(
+                f"{self.player1.mention} vs {self.player2.mention}\n\n"
+                "Each player must secretly choose to **Split** 🤝 or **Steal** 😈.\n"
+                "• Both Split → both win\n"
+                "• Both Steal → both lose\n"
+                "• One Steals, one Splits → the Stealer takes it all\n\n"
+                f"You have **{SOS_DECISION_SECONDS} seconds** to decide."
+            ),
+            color=discord.Color.blurple(),
+            timestamp=datetime.now(timezone.utc))
+        embed.add_field(name="Status", value=self.status_line(), inline=False)
+        embed.set_footer(text="Only the buttons below are visible — choices stay hidden until both lock in.")
+        return embed
+
+
+class SplitOrStealView(discord.ui.View):
+    def __init__(self, game: SplitOrStealGame):
+        super().__init__(timeout=SOS_DECISION_SECONDS)
+        self.game = game
+
+    async def _handle_choice(self, interaction: discord.Interaction, choice: str):
+        game = self.game
+        if interaction.user.id not in (game.player1.id, game.player2.id):
+            return await interaction.response.send_message(
+                "❌ This isn't your game — you can't pick a side here.", ephemeral=True)
+
+        if interaction.user.id in game.choices:
+            return await interaction.response.send_message(
+                "🔒 You've already locked in your choice.", ephemeral=True)
+
+        game.choices[interaction.user.id] = choice
+        await interaction.response.send_message(
+            f"✅ You chose **{choice.capitalize()}**. Waiting for the other player...", ephemeral=True)
+
+        if len(game.choices) == 2:
+            game.finished = True
+            self.stop()
+            for child in self.children:
+                child.disabled = True
+            await game.message.edit(embed=game.build_embed(result=True), view=self)
+        else:
+            await game.message.edit(embed=game.build_embed())
+
+    @discord.ui.button(label="Split", style=discord.ButtonStyle.success, emoji="🤝")
+    async def split_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._handle_choice(interaction, "split")
+
+    @discord.ui.button(label="Steal", style=discord.ButtonStyle.danger, emoji="😈")
+    async def steal_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._handle_choice(interaction, "steal")
+
+    async def on_timeout(self):
+        if self.game.finished:
+            return
+        for child in self.children:
+            child.disabled = True
+        try:
+            await self.game.message.edit(embed=self.game.build_embed(timed_out=True), view=self)
+        except discord.HTTPException:
+            pass
+
+
+async def _start_split_or_steal(send_func, player1: discord.Member, player2: discord.Member):
+    if player1.id == player2.id:
+        return await send_func(embed=error_embed("You can't play Split or Steal against yourself."))
+    if player1.bot or player2.bot:
+        return await send_func(embed=error_embed("Bots can't play Split or Steal."))
+
+    game = SplitOrStealGame(player1, player2)
+    view = SplitOrStealView(game)
+
+    message = await send_func(embed=game.build_embed(), view=view)
+    game.message = message
+
+
+@bot.command(name="sos", aliases=["splitorsteal"])
+async def sos_cmd(ctx, player1: discord.Member, player2: discord.Member):
+    await _start_split_or_steal(ctx.send, player1, player2)
+
+
+@sos_cmd.error
+async def sos_cmd_error(ctx, error):
+    if isinstance(error, commands.MemberNotFound):
+        await ctx.send(embed=error_embed("Couldn't find that user. Mention both players, e.g. `.sos @user1 @user2`"))
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(embed=error_embed("Usage: `.sos @user1 @user2`"))
+
+
+@bot.tree.command(name="splitorsteal", description="Start a Split or Steal game between two players")
+@app_commands.describe(player1="First player", player2="Second player")
+async def sos_slash(interaction: discord.Interaction, player1: discord.Member, player2: discord.Member):
+    if player1.id == player2.id:
+        return await interaction.response.send_message(embed=error_embed("You can't play Split or Steal against yourself."), ephemeral=True)
+    if player1.bot or player2.bot:
+        return await interaction.response.send_message(embed=error_embed("Bots can't play Split or Steal."), ephemeral=True)
+
+    game = SplitOrStealGame(player1, player2)
+    view = SplitOrStealView(game)
+
+    await interaction.response.send_message(embed=game.build_embed(), view=view)
+    game.message = await interaction.original_response()
 
 # ══════════════════════════════════════════════════════════════════════════════
 
