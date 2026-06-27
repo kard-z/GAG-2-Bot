@@ -6600,18 +6600,21 @@ async def vouch_cmd_error(ctx, error):
 @require_cmd_role("scamvouch")
 async def scamvouch_cmd(ctx, member: discord.Member = None, *, note: str = ""):
     if not member:
-        return await ctx.send(embed=error_embed("Usage: `.scamvouch @user [note]`"))
+        return await ctx.send(embed=error_embed("Usage: `.scamvouch @user <reason>`"))
     if member.id == ctx.author.id:
         return await ctx.send(embed=error_embed("You can't scam-vouch yourself."))
+    if not note or not note.strip():
+        return await ctx.send(embed=error_embed("❌ A reason is required. Usage: `.scamvouch @user <reason>`"))
     data = load_data()
     gid  = str(ctx.guild.id)
     uid  = str(member.id)
     data.setdefault("scam_vouches", {}).setdefault(gid, {}).setdefault(uid, [])
     data["scam_vouches"][gid][uid].append({
-        "reporter_id":  ctx.author.id,
-        "reporter_tag": str(ctx.author),
-        "note":         note,
-        "timestamp":    datetime.now(timezone.utc).isoformat(),
+        "reporter_id":   ctx.author.id,
+        "reporter_tag":  str(ctx.author),
+        "note":          note,
+        "timestamp":     datetime.now(timezone.utc).isoformat(),
+        "message_url":   ctx.message.jump_url,
     })
     save_data(data)
     total = len(data["scam_vouches"][gid][uid])
@@ -6655,10 +6658,21 @@ async def vouches_cmd(ctx, member: discord.Member = None):
     embed.add_field(name="🏅 Vouches",         value=str(total_vouches),   inline=True)
     embed.add_field(name="⭐ Unique Vouchers",  value=str(unique_vouchers), inline=True)
     if total_scams > 0:
-        reporters = ", ".join({v["reporter_tag"] for v in scam_list})
+        scam_lines = []
+        for v in scam_list:
+            tag  = v["reporter_tag"]
+            ts   = int(datetime.fromisoformat(v["timestamp"]).timestamp())
+            jump = v.get("message_url")
+            note = v.get("note", "").strip()
+            line = f"<@{v['reporter_id']}> · <t:{ts}:R>"
+            if note:
+                line += f"\n> {note}"
+            if jump:
+                line += f"\n[↗ Jump to report]({jump})"
+            scam_lines.append(line)
         embed.add_field(
             name=f"🔴 Scam Reports — {total_scams} flagged",
-            value=reporters or "N/A",
+            value="\n\n".join(scam_lines) or "N/A",
             inline=False,
         )
     else:
