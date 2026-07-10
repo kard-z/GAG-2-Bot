@@ -76,7 +76,30 @@ DATA_FILE            = "bot_data.db"   # SQLite database (was bot_data.json)
 
 DEFAULT_MUTE_SECONDS = 14 * 24 * 60 * 60
 
-JAIL_PURGE_MESSAGES  = 100
+JAIL_PURGE_MESSAGES  = 500
+
+# Small pause between individual (non-bulk) message deletions so a jail/purge
+# doesn't fire dozens of single DELETE requests back-to-back and trip
+# Discord's per-route rate limit. Bulk delete_messages() calls (up to 100 at
+# once) are already a single request each, so they're left unthrottled —
+# this only smooths the "single delete" fallback paths, which is where the
+# self-ratelimiting actually happens.
+PURGE_DELETE_DELAY   = 0.3
+
+# asyncio.create_task() only holds a weak ref internally — if nothing else
+# references the Task object, the event loop can garbage-collect it mid-run
+# with zero error/log output. Keep strong refs here until they finish.
+_background_tasks: set = set()
+
+def _spawn_background(coro):
+
+    t = asyncio.create_task(coro)
+
+    _background_tasks.add(t)
+
+    t.add_done_callback(_background_tasks.discard)
+
+    return t
 
 BOT_OWNER_ID         = 1516072585799139429
 
@@ -146,6 +169,14 @@ ACTION_COLORS = {
 
     "Unjail": discord.Color.blurple(),
 
+    "Infraction": discord.Color.orange(), "Remove Infraction": discord.Color.teal(),
+
+    "Promotion": discord.Color.green(), "Demotion": discord.Color.red(),
+
+    "LOA Request": discord.Color.blurple(), "LOA Approved": discord.Color.green(),
+
+    "LOA Denied": discord.Color.red(), "LOA Ended": discord.Color.dark_gray(),
+
 }
 
 ACTION_ICONS = {
@@ -157,6 +188,10 @@ ACTION_ICONS = {
     "DWC": "🏷️",
 
     "Remove DWC": "🏷️",
+
+    "Infraction": "⚠️", "Remove Infraction": "🗑️", "Promotion": "⬆️", "Demotion": "⬇️",
+
+    "LOA Request": "🌴", "LOA Approved": "✅", "LOA Denied": "❌", "LOA Ended": "🔚",
 
 }
 
@@ -512,6 +547,174 @@ COMMAND_SYNTAX = {
 
     },
 
+    "infraction": {
+
+        "usage":   ".infraction @staff <reason>",
+
+        "example": ".infraction @Jane missed 3 shifts without notice",
+
+        "note":    "Adds a staff infraction to a staff member's internal record. The staff member is DM'd.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
+    "infractions": {
+
+        "usage":   ".infractions [@staff]",
+
+        "example": ".infractions @Jane",
+
+        "note":    "Displays all staff infractions on a staff member's record.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
+    "removeinfraction": {
+
+        "usage":   ".removeinfraction @staff <number>",
+
+        "example": ".removeinfraction @Jane 1",
+
+        "note":    "Removes a specific staff infraction by number. Use `.infractions @staff` to see numbers.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
+    "promote": {
+
+        "usage":   ".promote @staff <role> [reason]",
+
+        "example": ".promote @Jane @Senior Moderator ready for more responsibility",
+
+        "note":    "Promotes a staff member to the given role and logs the rank change.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
+    "demote": {
+
+        "usage":   ".demote @staff <role> [reason]",
+
+        "example": ".demote @Jane @Trial Moderator inactivity",
+
+        "note":    "Demotes a staff member to the given role and logs the rank change.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
+    "rankhistory": {
+
+        "usage":   ".rankhistory [@staff]",
+
+        "example": ".rankhistory @Jane",
+
+        "note":    "Shows a staff member's full promotion/demotion history.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
+    "loa": {
+
+        "usage":   ".loa <duration> <reason>",
+
+        "example": ".loa 7d family vacation",
+
+        "note":    "Requests a Leave of Absence. Posted to the LOA channel for approval.",
+
+        "perms":   "Staff",
+
+    },
+
+    "loalist": {
+
+        "usage":   ".loalist",
+
+        "example": ".loalist",
+
+        "note":    "Lists all pending and active LOAs on the server.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
+    "loaapprove": {
+
+        "usage":   ".loaapprove <id>",
+
+        "example": ".loaapprove 3",
+
+        "note":    "Approves a pending LOA request.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
+    "loadeny": {
+
+        "usage":   ".loadeny <id> [reason]",
+
+        "example": ".loadeny 3 not enough notice",
+
+        "note":    "Denies a pending LOA request.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
+    "loaend": {
+
+        "usage":   ".loaend [@staff]",
+
+        "example": ".loaend",
+
+        "note":    "Ends your own active LOA early, or (with permission) another staff member's LOA.",
+
+        "perms":   "Staff",
+
+    },
+
+    "setloachannel": {
+
+        "usage":   ".setloachannel #channel",
+
+        "example": ".setloachannel #loa-requests",
+
+        "note":    "Sets the channel LOA requests get posted to for review.",
+
+        "perms":   "Head Executives / Admin (Setup)",
+
+    },
+
+    "stafflist": {
+
+        "usage":   ".stafflist",
+
+        "example": ".stafflist",
+
+        "note":    "Displays every staff member on the server, grouped by rank.",
+
+        "perms":   "Everyone",
+
+    },
+
+    "massecho": {
+
+        "usage":   ".massecho <message>",
+
+        "example": ".massecho Server maintenance starts in 10 minutes.",
+
+        "note":    "Broadcasts a message to many channels at once, with a category picker and a confirm/cancel preview before anything sends.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
     "📸  Unappeal Roles": {
 
         "emoji": "📸",
@@ -768,7 +971,19 @@ def _default_data() -> dict:
 
         "jail_requests": {}, "jail_request_channel": {}, "next_jreq": 1,
 
-        "appeal_roles": {}, "dwc_roles": {}, "vouches": {}, "scam_vouches": {}
+        "appeal_roles": {}, "dwc_roles": {}, "vouches": {}, "scam_vouches": {},
+        "next_scam_vouch": 1, "scam_vouch_cooldowns": {},
+        "staff_infractions": {}, "promotions": {}, "loa": {}, "next_loa": 1, "loa_channel": {},
+
+        "promotion_channel": {}, "demotion_channel": {}, "infraction_channel": {},
+
+        "demote_remove_role": {},
+
+        "promotion_requests": {}, "next_promo_req": 1,
+
+        "demotion_requests": {}, "next_demote_req": 1,
+
+        "infraction_requests": {}, "next_infr_req": 1,
 
     }
 
@@ -839,11 +1054,21 @@ def load_data() -> dict:
         data["_load_failed"] = True
         return data
 
-    for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles", "vouches", "scam_vouches"):
+    for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles", "vouches", "scam_vouches", "scam_vouch_cooldowns", "staff_infractions", "promotions", "loa", "loa_channel", "promotion_channel", "demotion_channel", "infraction_channel", "demote_remove_role", "promotion_requests", "demotion_requests", "infraction_requests"):
         if key not in data:
             data[key] = {}
     if "next_jreq" not in data:
         data["next_jreq"] = 1
+    if "next_loa" not in data:
+        data["next_loa"] = 1
+    if "next_promo_req" not in data:
+        data["next_promo_req"] = 1
+    if "next_demote_req" not in data:
+        data["next_demote_req"] = 1
+    if "next_infr_req" not in data:
+        data["next_infr_req"] = 1
+    if "next_scam_vouch" not in data:
+        data["next_scam_vouch"] = 1
     return data
 
 def save_data(data: dict):
@@ -1022,6 +1247,261 @@ def get_case_by_id(data, guild_id, case_id: int):
             return c
 
     return None
+
+def add_staff_infraction(data, guild_id, user_id, mod, reason, severity="Minor") -> int:
+    key = f"{guild_id}:{user_id}"
+    if key not in data["staff_infractions"]:
+        data["staff_infractions"][key] = []
+    n = len(data["staff_infractions"][key]) + 1
+    data["staff_infractions"][key].append({
+        "number": n, "mod_id": mod.id, "mod_tag": str(mod),
+        "severity": severity, "reason": reason,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    save_data(data)
+    return n
+
+
+def get_staff_infractions(data, guild_id, user_id):
+    return data["staff_infractions"].get(f"{guild_id}:{user_id}", [])
+
+
+def remove_staff_infraction(data, guild_id, user_id, index) -> bool:
+    key = f"{guild_id}:{user_id}"
+    infs = data["staff_infractions"].get(key, [])
+    if index < 1 or index > len(infs):
+        return False
+    infs.pop(index - 1)
+    for i, inf in enumerate(infs):
+        inf["number"] = i + 1
+    data["staff_infractions"][key] = infs
+    save_data(data)
+    return True
+
+
+def add_rank_change(data, guild_id, user_id, mod, change_type, old_role, new_role, reason) -> int:
+    key = f"{guild_id}:{user_id}"
+    if key not in data["promotions"]:
+        data["promotions"][key] = []
+    n = len(data["promotions"][key]) + 1
+    data["promotions"][key].append({
+        "number": n, "type": change_type, "mod_id": mod.id, "mod_tag": str(mod),
+        "old_role": old_role, "new_role": new_role, "reason": reason,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    save_data(data)
+    return n
+
+
+def get_rank_history(data, guild_id, user_id):
+    return data["promotions"].get(f"{guild_id}:{user_id}", [])
+
+
+def get_loa_channel_id(guild_id: int):
+    data = load_data()
+    return data["loa_channel"].get(str(guild_id))
+
+
+def set_loa_channel(guild_id: int, channel_id: int):
+    data = load_data()
+    data["loa_channel"][str(guild_id)] = channel_id
+    save_data(data)
+
+
+def get_promotion_channel_id(guild_id: int):
+    data = load_data()
+    return data.get("promotion_channel", {}).get(str(guild_id))
+
+
+def set_promotion_channel(guild_id: int, channel_id: int):
+    data = load_data()
+    data.setdefault("promotion_channel", {})[str(guild_id)] = channel_id
+    save_data(data)
+
+
+def get_demotion_channel_id(guild_id: int):
+    data = load_data()
+    return data.get("demotion_channel", {}).get(str(guild_id))
+
+
+def set_demotion_channel(guild_id: int, channel_id: int):
+    data = load_data()
+    data.setdefault("demotion_channel", {})[str(guild_id)] = channel_id
+    save_data(data)
+
+
+def get_infraction_channel_id(guild_id: int):
+    data = load_data()
+    return data.get("infraction_channel", {}).get(str(guild_id))
+
+
+def set_infraction_channel(guild_id: int, channel_id: int):
+    data = load_data()
+    data.setdefault("infraction_channel", {})[str(guild_id)] = channel_id
+    save_data(data)
+
+
+def get_demote_remove_role_id(guild_id: int):
+    data = load_data()
+    return data.get("demote_remove_role", {}).get(str(guild_id))
+
+
+def set_demote_remove_role(guild_id: int, role_id: int):
+    data = load_data()
+    data.setdefault("demote_remove_role", {})[str(guild_id)] = role_id
+    save_data(data)
+
+
+def _fallback_request_channel(guild: discord.Guild):
+    """Fallback channel for promotion/demotion/infraction requests when no
+    channel has been configured for that specific category yet."""
+    return discord.utils.get(guild.text_channels, name=MOD_LOG_CHANNEL_NAME)
+
+
+def get_promotion_channel(guild: discord.Guild):
+    cid = get_promotion_channel_id(guild.id)
+    ch  = guild.get_channel(cid) if cid else None
+    return ch or _fallback_request_channel(guild)
+
+
+def get_demotion_channel(guild: discord.Guild):
+    cid = get_demotion_channel_id(guild.id)
+    ch  = guild.get_channel(cid) if cid else None
+    return ch or _fallback_request_channel(guild)
+
+
+def get_infraction_channel(guild: discord.Guild):
+    cid = get_infraction_channel_id(guild.id)
+    ch  = guild.get_channel(cid) if cid else None
+    return ch or _fallback_request_channel(guild)
+
+
+def create_promotion_request(data, guild_id, requester, target, role, reason) -> int:
+    gid = str(guild_id)
+    data.setdefault("promotion_requests", {}).setdefault(gid, [])
+    rid = data.get("next_promo_req", 1)
+    data["next_promo_req"] = rid + 1
+    record = {
+        "id": rid,
+        "requester_id": requester.id, "requester_tag": str(requester),
+        "target_id": target.id, "target_tag": str(target),
+        "role_id": role.id, "role_name": role.name,
+        "reason": reason, "status": "pending",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    data["promotion_requests"][gid].append(record)
+    save_data(data)
+    return rid
+
+
+def get_promotion_request(data, guild_id, rid: int):
+    for r in data.get("promotion_requests", {}).get(str(guild_id), []):
+        if r["id"] == rid:
+            return r
+    return None
+
+
+def create_demotion_request(data, guild_id, requester, target, role, reason) -> int:
+    gid = str(guild_id)
+    data.setdefault("demotion_requests", {}).setdefault(gid, [])
+    rid = data.get("next_demote_req", 1)
+    data["next_demote_req"] = rid + 1
+    record = {
+        "id": rid,
+        "requester_id": requester.id, "requester_tag": str(requester),
+        "target_id": target.id, "target_tag": str(target),
+        "role_id": role.id, "role_name": role.name,
+        "reason": reason, "status": "pending",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    data["demotion_requests"][gid].append(record)
+    save_data(data)
+    return rid
+
+
+def get_demotion_request(data, guild_id, rid: int):
+    for r in data.get("demotion_requests", {}).get(str(guild_id), []):
+        if r["id"] == rid:
+            return r
+    return None
+
+
+def create_infraction_request(data, guild_id, requester, target, reason) -> int:
+    gid = str(guild_id)
+    data.setdefault("infraction_requests", {}).setdefault(gid, [])
+    rid = data.get("next_infr_req", 1)
+    data["next_infr_req"] = rid + 1
+    record = {
+        "id": rid,
+        "requester_id": requester.id, "requester_tag": str(requester),
+        "target_id": target.id, "target_tag": str(target),
+        "reason": reason, "status": "pending",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    data["infraction_requests"][gid].append(record)
+    save_data(data)
+    return rid
+
+
+def get_infraction_request(data, guild_id, rid: int):
+    for r in data.get("infraction_requests", {}).get(str(guild_id), []):
+        if r["id"] == rid:
+            return r
+    return None
+
+
+def _mark_request_status(data, bucket: str, guild_id, rid: int, status: str, mod):
+    for r in data.get(bucket, {}).get(str(guild_id), []):
+        if r["id"] == rid:
+            r["status"]       = status
+            r["actioned_by"]  = mod.id
+            r["actioned_tag"] = str(mod)
+            save_data(data)
+            return r
+    return None
+
+
+def next_loa_id(data) -> int:
+    lid = data.get("next_loa", 1)
+    data["next_loa"] = lid + 1
+    return lid
+
+
+def create_loa_request(data, guild_id, user_id, user_tag, start, end, reason) -> int:
+    lid = next_loa_id(data)
+    data["loa"][str(lid)] = {
+        "id": lid, "guild_id": guild_id, "user_id": user_id, "user_tag": user_tag,
+        "start": start.isoformat(), "end": end.isoformat(), "reason": reason,
+        "status": "pending", "requested_at": datetime.now(timezone.utc).isoformat(),
+        "decided_by": None, "decided_at": None,
+    }
+    save_data(data)
+    return lid
+
+
+def get_loa(data, loa_id: int):
+    return data["loa"].get(str(loa_id))
+
+
+def get_active_loas(data, guild_id):
+    return [l for l in data["loa"].values()
+            if l["guild_id"] == guild_id and l["status"] in ("pending", "approved")]
+
+
+def get_user_loas(data, guild_id, user_id):
+    return [l for l in data["loa"].values() if l["guild_id"] == guild_id and l["user_id"] == user_id]
+
+
+def set_loa_status(data, loa_id: int, status: str, decided_by=None):
+    rec = data["loa"].get(str(loa_id))
+    if not rec:
+        return False
+    rec["status"] = status
+    rec["decided_by"] = decided_by.id if decided_by else None
+    rec["decided_at"] = datetime.now(timezone.utc).isoformat()
+    save_data(data)
+    return True
+
 
 def add_warn(data, guild_id, user_id, mod, reason) -> int:
 
@@ -2180,6 +2660,18 @@ def require_setup_auth():
 
     return commands.check(pred)
 
+def member_has_cmd_perm(m, cmd_name: str) -> bool:
+    """Non-decorator version of the require_cmd_role/slash_cmd_role check, for
+    use inside button callbacks (e.g. approving a promotion/demotion/infraction
+    request). Admins and the bot owner can always act; otherwise the member
+    needs one of the roles configured for cmd_name via .setup perms."""
+    if m.id == BOT_OWNER_ID or is_admin(m):
+        return True
+    allowed = get_cmd_roles(m.guild.id).get(cmd_name, [])
+    if not allowed:
+        return True
+    return any(discord.utils.get(m.roles, name=r) is not None for r in allowed)
+
 def require_cmd_role(cmd_name: str):
 
     async def pred(ctx):
@@ -3255,6 +3747,14 @@ async def purge_member_messages(guild, target, limit: int):
 
                         continue
 
+                    await asyncio.sleep(PURGE_DELETE_DELAY)
+
+            else:
+
+                # Bulk delete_messages() is one request per chunk, so this only
+                # matters when a purge spans multiple 100-message chunks.
+                await asyncio.sleep(PURGE_DELETE_DELAY if len(chunk) == 1 else 0.15)
+
         for m in needs_single:
 
             try:
@@ -3267,9 +3767,15 @@ async def purge_member_messages(guild, target, limit: int):
 
                 continue
 
+            finally:
+
+                await asyncio.sleep(PURGE_DELETE_DELAY)
+
             if deleted_total >= limit:
 
                 break
+
+    print(f"[jail purge] {target} in {guild}: deleted {deleted_total} across {len(channels)} channels/threads")
 
 async def action_jail(guild, target, reason):
 
@@ -3279,7 +3785,21 @@ async def action_jail(guild, target, reason):
 
     await target.add_roles(role, reason=reason)
 
-    asyncio.create_task(purge_member_messages(guild, target, JAIL_PURGE_MESSAGES))
+    task = _spawn_background(purge_member_messages(guild, target, JAIL_PURGE_MESSAGES))
+
+    def _log_purge_error(t):
+
+        exc = t.exception() if not t.cancelled() else None
+
+        if exc:
+
+            print(f"[jail purge] failed for {target} in {guild}: {exc!r}")
+
+            import traceback
+
+            traceback.print_exception(type(exc), exc, exc.__traceback__)
+
+    task.add_done_callback(_log_purge_error)
 
     return True
 
@@ -3710,6 +4230,45 @@ class JailReqChannelSelect(discord.ui.ChannelSelect):
         await interaction.response.edit_message(
             embed=success_embed(f"Jail requests will now be posted to {channel.mention}."), view=None)
 
+
+@bot.command(name="setloachannel")
+@require_setup_auth()
+async def set_loa_channel_cmd(ctx, channel: discord.TextChannel = None):
+    if not channel:
+        view = LoaChannelPickerView(ctx.author.id)
+        return await ctx.send(
+            embed=info_embed("Select the channel LOA requests should be posted to:"), view=view)
+    set_loa_channel(ctx.guild.id, channel.id)
+    await ctx.send(embed=success_embed(f"LOA requests will now be posted to {channel.mention}."))
+
+
+class LoaChannelPickerView(discord.ui.View):
+    def __init__(self, invoker_id: int):
+        super().__init__(timeout=120)
+        self.invoker_id = invoker_id
+        self.add_item(LoaChannelSelect(invoker_id))
+
+
+class LoaChannelSelect(discord.ui.ChannelSelect):
+    def __init__(self, invoker_id: int):
+        super().__init__(
+            placeholder="Choose the LOA request channel...",
+            min_values=1, max_values=1,
+            channel_types=[discord.ChannelType.text],
+        )
+        self.invoker_id = invoker_id
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.invoker_id:
+            return await interaction.response.send_message(
+                embed=error_embed("Only the person who ran this command can use this."), ephemeral=True)
+        channel = self.values[0]
+        set_loa_channel(interaction.guild.id, channel.id)
+        await interaction.response.edit_message(
+            embed=success_embed(f"LOA requests will now be posted to {channel.mention}."), view=None)
+
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  CORE MUTE LOGIC
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3792,7 +4351,7 @@ PERM_CATEGORIES = {
 
         "description": "Vouch, scam reports and staff-only vouch management",
 
-        "commands": ["addvouch", "removevouch", "vouch", "scamvouch", "vouches"],
+        "commands": ["addvouch", "removevouch", "vouch", "scamvouch", "removescamvouch", "vouches"],
 
     },
 
@@ -3837,6 +4396,78 @@ PERM_CATEGORIES = {
 
     },
 
+    "🧑‍💼  Staff Management": {
+
+        "emoji": "🧑‍💼",
+
+        "description": "Infractions, promotions, demotions and the staff list",
+
+        "commands": ["infraction", "infractions", "removeinfraction", "promote", "demote",
+
+                     "rankhistory", "loa", "loalist", "loaapprove", "loadeny", "loaend", "stafflist"],
+
+    },
+
+    "🌴  LOA Channel": {
+
+        "emoji": "🌴",
+
+        "description": "Where .loa / /loa request requests get posted for review",
+
+        "commands": [],
+
+    },
+
+    "⬆️  Promotion Channel": {
+
+        "emoji": "⬆️",
+
+        "description": "Where .promotereq / /promoterequest requests get posted for review",
+
+        "commands": [],
+
+    },
+
+    "⬇️  Demotion Channel": {
+
+        "emoji": "⬇️",
+
+        "description": "Where .demotereq / /demoterequest requests get posted for review",
+
+        "commands": [],
+
+    },
+
+    "⚠️  Infraction Channel": {
+
+        "emoji": "⚠️",
+
+        "description": "Where .infractionreq / /infractionrequest requests get posted for review",
+
+        "commands": [],
+
+    },
+
+    "🗑️  Demotion Role Removed": {
+
+        "emoji": "🗑️",
+
+        "description": "The role automatically removed once a demotion request is approved",
+
+        "commands": [],
+
+    },
+
+    "📣  Mass Echo": {
+
+        "emoji": "📣",
+
+        "description": "Broadcast a message to many channels at once",
+
+        "commands": ["massecho"],
+
+    },
+
 }
 
 COMMAND_EMOJIS = {
@@ -3851,11 +4482,19 @@ COMMAND_EMOJIS = {
 
     "addcmd": "➕", "delcmd": "➖", "listcmds": "📃", "afk": "💤", "setup": "⚙️", "rappeal": "🎯", "dwc": "🏷️", "rdwc": "🏷️",
 
-    "addvouch": "🏅", "removevouch": "🗑️", "vouch": "✅", "scamvouch": "🚨", "vouches": "📋",
+    "addvouch": "🏅", "removevouch": "🗑️", "vouch": "✅", "scamvouch": "🚨", "removescamvouch": "🗑️", "vouches": "📋",
 
     "giveaway create": "🎉", "giveaway end": "🏁", "giveaway reroll": "🔁", "giveaway delete": "❌", "giveaway list": "📜",
 
     "ping": "📶",
+
+    "infraction": "⚠️", "infractions": "📋", "removeinfraction": "🗑️",
+
+    "promote": "⬆️", "demote": "⬇️", "rankhistory": "📜",
+
+    "loa": "🌴", "loalist": "📃", "loaapprove": "✅", "loadeny": "❌", "loaend": "🔚",
+
+    "stafflist": "🧑‍💼", "massecho": "📣",
 
 }
 
@@ -3961,6 +4600,56 @@ class CategorySelectDropdown(discord.ui.Select):
         if cat_name == "DWC Roles":
 
             view  = DWCRoleConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
+
+            embed = view.build_embed()
+
+            await interaction.response.edit_message(embed=embed, view=view)
+
+            return
+
+        if cat_name == "🌴  LOA Channel":
+
+            view  = LOAChannelConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
+
+            embed = view.build_embed()
+
+            await interaction.response.edit_message(embed=embed, view=view)
+
+            return
+
+        if cat_name == "⬆️  Promotion Channel":
+
+            view  = PromotionChannelConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
+
+            embed = view.build_embed()
+
+            await interaction.response.edit_message(embed=embed, view=view)
+
+            return
+
+        if cat_name == "⬇️  Demotion Channel":
+
+            view  = DemotionChannelConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
+
+            embed = view.build_embed()
+
+            await interaction.response.edit_message(embed=embed, view=view)
+
+            return
+
+        if cat_name == "⚠️  Infraction Channel":
+
+            view  = InfractionChannelConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
+
+            embed = view.build_embed()
+
+            await interaction.response.edit_message(embed=embed, view=view)
+
+            return
+
+        if cat_name == "🗑️  Demotion Role Removed":
+
+            view  = DemoteRoleConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
 
             embed = view.build_embed()
 
@@ -4482,6 +5171,443 @@ class DWCRoleConfigView(discord.ui.View):
 
         return True
 
+class LOAChannelConfigSelect(discord.ui.ChannelSelect):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        super().__init__(
+
+            placeholder="Choose the LOA request channel...",
+
+            min_values=1, max_values=1,
+
+            channel_types=[discord.ChannelType.text],
+
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+
+        channel = self.values[0]
+
+        set_loa_channel(self.guild.id, channel.id)
+
+        view  = LOAChannelConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+
+        embed = view.build_embed(updated_to=channel)
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class LOAChannelConfigView(discord.ui.View):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        super().__init__(timeout=300)
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        self.add_item(LOAChannelConfigSelect(guild, guild_cmd_roles, invoker_id))
+
+        self.add_item(BackToCategoryButton(guild_cmd_roles, invoker_id))
+
+    def build_embed(self, updated_to: discord.TextChannel = None) -> discord.Embed:
+
+        data = load_data()
+
+        cid  = get_loa_channel_id(self.guild.id)
+
+        embed = discord.Embed(
+            title="🌴  LOA Channel",
+            description=(
+                "This is where `.loa` / `/loa request` requests get posted, so "
+                "head executives and admins can approve or deny them.\n\n"
+                "**Select a channel below to set or change it.**"
+            ),
+            color=discord.Color.blurple(),
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        if updated_to:
+            embed.add_field(name="✅ Updated", value=f"LOA requests will now be posted to {updated_to.mention}.", inline=False)
+        elif cid:
+            ch = self.guild.get_channel(cid)
+            embed.add_field(name="Current Channel", value=ch.mention if ch else f"`#{cid}`", inline=False)
+        else:
+            embed.add_field(name="Current Channel", value="*Not set — falls back to the staff-logs channel*", inline=False)
+
+        embed.set_footer(text="Admins and the bot owner can always use any command.")
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+
+        if interaction.user.id != self.invoker_id:
+
+            await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+
+            return False
+
+        return True
+
+
+class PromotionChannelConfigSelect(discord.ui.ChannelSelect):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        super().__init__(
+
+            placeholder="Choose the promotion request channel...",
+
+            min_values=1, max_values=1,
+
+            channel_types=[discord.ChannelType.text],
+
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+
+        channel = self.values[0]
+
+        set_promotion_channel(self.guild.id, channel.id)
+
+        view  = PromotionChannelConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+
+        embed = view.build_embed(updated_to=channel)
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class PromotionChannelConfigView(discord.ui.View):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        super().__init__(timeout=300)
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        self.add_item(PromotionChannelConfigSelect(guild, guild_cmd_roles, invoker_id))
+
+        self.add_item(BackToCategoryButton(guild_cmd_roles, invoker_id))
+
+    def build_embed(self, updated_to: discord.TextChannel = None) -> discord.Embed:
+
+        cid = get_promotion_channel_id(self.guild.id)
+
+        embed = discord.Embed(
+            title="⬆️  Promotion Channel",
+            description=(
+                "This is where `.promotereq` / `/promoterequest` requests get posted, so "
+                "head executives and admins can approve or deny them.\n\n"
+                "**Select a channel below to set or change it.**"
+            ),
+            color=discord.Color.blurple(),
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        if updated_to:
+            embed.add_field(name="✅ Updated", value=f"Promotion requests will now be posted to {updated_to.mention}.", inline=False)
+        elif cid:
+            ch = self.guild.get_channel(cid)
+            embed.add_field(name="Current Channel", value=ch.mention if ch else f"`#{cid}`", inline=False)
+        else:
+            embed.add_field(name="Current Channel", value="*Not set — falls back to the staff-logs channel*", inline=False)
+
+        embed.set_footer(text="Admins and the bot owner can always use any command.")
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+
+        if interaction.user.id != self.invoker_id:
+
+            await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+
+            return False
+
+        return True
+
+
+class DemotionChannelConfigSelect(discord.ui.ChannelSelect):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        super().__init__(
+
+            placeholder="Choose the demotion request channel...",
+
+            min_values=1, max_values=1,
+
+            channel_types=[discord.ChannelType.text],
+
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+
+        channel = self.values[0]
+
+        set_demotion_channel(self.guild.id, channel.id)
+
+        view  = DemotionChannelConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+
+        embed = view.build_embed(updated_to=channel)
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class DemotionChannelConfigView(discord.ui.View):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        super().__init__(timeout=300)
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        self.add_item(DemotionChannelConfigSelect(guild, guild_cmd_roles, invoker_id))
+
+        self.add_item(BackToCategoryButton(guild_cmd_roles, invoker_id))
+
+    def build_embed(self, updated_to: discord.TextChannel = None) -> discord.Embed:
+
+        cid = get_demotion_channel_id(self.guild.id)
+
+        embed = discord.Embed(
+            title="⬇️  Demotion Channel",
+            description=(
+                "This is where `.demotereq` / `/demoterequest` requests get posted, so "
+                "head executives and admins can approve or deny them.\n\n"
+                "**Select a channel below to set or change it.**"
+            ),
+            color=discord.Color.blurple(),
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        if updated_to:
+            embed.add_field(name="✅ Updated", value=f"Demotion requests will now be posted to {updated_to.mention}.", inline=False)
+        elif cid:
+            ch = self.guild.get_channel(cid)
+            embed.add_field(name="Current Channel", value=ch.mention if ch else f"`#{cid}`", inline=False)
+        else:
+            embed.add_field(name="Current Channel", value="*Not set — falls back to the staff-logs channel*", inline=False)
+
+        embed.set_footer(text="Admins and the bot owner can always use any command.")
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+
+        if interaction.user.id != self.invoker_id:
+
+            await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+
+            return False
+
+        return True
+
+
+class InfractionChannelConfigSelect(discord.ui.ChannelSelect):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        super().__init__(
+
+            placeholder="Choose the infraction request channel...",
+
+            min_values=1, max_values=1,
+
+            channel_types=[discord.ChannelType.text],
+
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+
+        channel = self.values[0]
+
+        set_infraction_channel(self.guild.id, channel.id)
+
+        view  = InfractionChannelConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+
+        embed = view.build_embed(updated_to=channel)
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class InfractionChannelConfigView(discord.ui.View):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        super().__init__(timeout=300)
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        self.add_item(InfractionChannelConfigSelect(guild, guild_cmd_roles, invoker_id))
+
+        self.add_item(BackToCategoryButton(guild_cmd_roles, invoker_id))
+
+    def build_embed(self, updated_to: discord.TextChannel = None) -> discord.Embed:
+
+        cid = get_infraction_channel_id(self.guild.id)
+
+        embed = discord.Embed(
+            title="⚠️  Infraction Channel",
+            description=(
+                "This is where `.infractionreq` / `/infractionrequest` requests get posted, so "
+                "head executives and admins can approve or deny them.\n\n"
+                "**Select a channel below to set or change it.**"
+            ),
+            color=discord.Color.blurple(),
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        if updated_to:
+            embed.add_field(name="✅ Updated", value=f"Infraction requests will now be posted to {updated_to.mention}.", inline=False)
+        elif cid:
+            ch = self.guild.get_channel(cid)
+            embed.add_field(name="Current Channel", value=ch.mention if ch else f"`#{cid}`", inline=False)
+        else:
+            embed.add_field(name="Current Channel", value="*Not set — falls back to the staff-logs channel*", inline=False)
+
+        embed.set_footer(text="Admins and the bot owner can always use any command.")
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+
+        if interaction.user.id != self.invoker_id:
+
+            await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+
+            return False
+
+        return True
+
+
+class DemoteRoleConfigSelect(discord.ui.RoleSelect):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        super().__init__(
+
+            placeholder="Choose the role removed on demotion approval...",
+
+            min_values=1, max_values=1,
+
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+
+        role = self.values[0]
+
+        set_demote_remove_role(self.guild.id, role.id)
+
+        view  = DemoteRoleConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+
+        embed = view.build_embed(updated_to=role)
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class DemoteRoleConfigView(discord.ui.View):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        super().__init__(timeout=300)
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        self.add_item(DemoteRoleConfigSelect(guild, guild_cmd_roles, invoker_id))
+
+        self.add_item(BackToCategoryButton(guild_cmd_roles, invoker_id))
+
+    def build_embed(self, updated_to: discord.Role = None) -> discord.Embed:
+
+        role_id = get_demote_remove_role_id(self.guild.id)
+
+        role = self.guild.get_role(role_id) if role_id else None
+
+        embed = discord.Embed(
+            title="🗑️  Demotion Role Removed",
+            description=(
+                "Choose the role the bot should automatically **remove** from a "
+                "staff member whenever a demotion request is approved via "
+                "`.demotereq` / `/demoterequest`.\n\n"
+                "**Select a role below to set or change it.**"
+            ),
+            color=discord.Color.blurple(),
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        if updated_to:
+            embed.add_field(name="✅ Updated", value=f"Role removed on demotion approval is now {updated_to.mention}.", inline=False)
+        elif role:
+            embed.add_field(name="Current Role", value=role.mention, inline=False)
+        else:
+            embed.add_field(name="Current Role", value="*Not set — no role will be auto-removed*", inline=False)
+
+        embed.set_footer(text="Admins and the bot owner can always use any command.")
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+
+        if interaction.user.id != self.invoker_id:
+
+            await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+
+            return False
+
+        return True
+
+
 class CategorySelectView(discord.ui.View):
 
     def __init__(self, guild_cmd_roles: dict, invoker_id: int):
@@ -4536,6 +5662,10 @@ class CmdSelectDropdown(discord.ui.Select):
 
         ]
 
+        if not options:
+
+            options = [discord.SelectOption(label="No commands in this category", value="__none__", description="Nothing to configure here")]
+
         super().__init__(
 
             placeholder="Select a command to configure...",
@@ -4544,11 +5674,19 @@ class CmdSelectDropdown(discord.ui.Select):
 
             options=options,
 
+            disabled=not cmds,
+
         )
 
     async def callback(self, interaction: discord.Interaction):
 
         cmd  = self.values[0]
+
+        if cmd == "__none__":
+
+            await interaction.response.defer()
+
+            return
 
         view = RoleEditView(interaction.guild, cmd, self.cat_name, self.guild_cmd_roles, self.invoker_id)
 
@@ -5284,6 +6422,27 @@ async def automod_log(message, reason, detail):
 
 # ══════════════════════════════════════════════════════════════════════════════
 
+def setup_progress_embed(step, total, label) -> discord.Embed:
+
+    bar_len = 20
+
+    filled = int(bar_len * step / total) if total else bar_len
+
+    bar = "█" * filled + "░" * (bar_len - filled)
+
+    pct = int((step / total) * 100) if total else 100
+
+    embed = discord.Embed(title="⚙️ Server Setup — Running…", description=f"`{bar}` {pct}%",
+
+                          color=discord.Color.orange())
+
+    embed.add_field(name="Step", value=f"{step}/{total}", inline=True)
+
+    embed.add_field(name="Current", value=label, inline=True)
+
+    return embed
+
+
 @bot.command(name="setup")
 
 @require_setup_auth()
@@ -5314,6 +6473,24 @@ async def setup_cmd(ctx, subcommand: str = None):
 
     msg     = await ctx.send(embed=status_embed)
 
+    SETUP_TOTAL_STEPS = 7
+
+    step = 0
+
+    async def _advance(label):
+
+        nonlocal step
+
+        step += 1
+
+        try:
+
+            await msg.edit(embed=setup_progress_embed(step, SETUP_TOTAL_STEPS, label))
+
+        except discord.HTTPException:
+
+            pass
+
     results = []
 
     log_channel = discord.utils.get(guild.text_channels, name=MOD_LOG_CHANNEL_NAME)
@@ -5334,6 +6511,8 @@ async def setup_cmd(ctx, subcommand: str = None):
 
         results.append(f"ℹ️ `#{MOD_LOG_CHANNEL_NAME}` already exists")
 
+    await _advance(f"#{MOD_LOG_CHANNEL_NAME}")
+
     auto_channel = discord.utils.get(guild.text_channels, name=AUTO_LOG_CHANNEL_NAME)
 
     if auto_channel is None:
@@ -5352,6 +6531,8 @@ async def setup_cmd(ctx, subcommand: str = None):
 
         results.append(f"ℹ️ `#{AUTO_LOG_CHANNEL_NAME}` already exists")
 
+    await _advance(f"#{AUTO_LOG_CHANNEL_NAME}")
+
     jreq_channel = discord.utils.get(guild.text_channels, name=JAIL_REQUEST_CHANNEL_NAME)
 
     if jreq_channel is None:
@@ -5369,6 +6550,8 @@ async def setup_cmd(ctx, subcommand: str = None):
     else:
 
         results.append(f"ℹ️ `#{JAIL_REQUEST_CHANNEL_NAME}` already exists")
+
+    await _advance(f"#{JAIL_REQUEST_CHANNEL_NAME}")
 
     muted_role = discord.utils.get(guild.roles, name=MUTED_ROLE_NAME)
 
@@ -5389,6 +6572,8 @@ async def setup_cmd(ctx, subcommand: str = None):
     else:
 
         results.append(f"ℹ️ `{MUTED_ROLE_NAME}` role already exists")
+
+    await _advance(f"{MUTED_ROLE_NAME} role")
 
     if muted_role:
 
@@ -5418,6 +6603,8 @@ async def setup_cmd(ctx, subcommand: str = None):
 
         results.append(f"✅ Applied Muted perms to **{ok}** channel(s)" + (f" (failed: {fail})" if fail else ""))
 
+    await _advance(f"{MUTED_ROLE_NAME} channel perms")
+
     jailed_role = discord.utils.get(guild.roles, name=JAIL_ROLE_NAME)
 
     if jailed_role is None:
@@ -5438,6 +6625,8 @@ async def setup_cmd(ctx, subcommand: str = None):
 
         results.append(f"ℹ️ `{JAIL_ROLE_NAME}` role already exists")
 
+    await _advance(f"{JAIL_ROLE_NAME} role")
+
     if jailed_role:
 
         ok, fail = 0, 0
@@ -5455,6 +6644,8 @@ async def setup_cmd(ctx, subcommand: str = None):
                 fail += 1
 
         results.append(f"✅ Applied Jailed perms to **{ok}** channel(s)" + (f" (failed: {fail})" if fail else ""))
+
+    await _advance(f"{JAIL_ROLE_NAME} channel perms")
 
     results.append("\n💡 Use `.setup perms` to configure which roles can use each command.")
 
@@ -6356,6 +7547,14 @@ async def purge_user_in_channel(channel, member, amount: int) -> int:
 
                     continue
 
+                await asyncio.sleep(PURGE_DELETE_DELAY)
+
+        else:
+
+            # Bulk delete_messages() is one request per chunk, so this only
+            # matters when a purge spans multiple 100-message chunks.
+            await asyncio.sleep(PURGE_DELETE_DELAY if len(chunk) == 1 else 0.15)
+
     for m in needs_single:
 
         try:
@@ -6367,6 +7566,10 @@ async def purge_user_in_channel(channel, member, amount: int) -> int:
         except (discord.Forbidden, discord.HTTPException):
 
             continue
+
+        finally:
+
+            await asyncio.sleep(PURGE_DELETE_DELAY)
 
     return deleted
 
@@ -6448,6 +7651,8 @@ async def listcmds_cmd(ctx):
 #  VOUCH SYSTEM
 # ══════════════════════════════════════════════════════════════════════════════
 
+SCAM_VOUCH_COOLDOWN_SECONDS = 3600  # 1 hour
+
 def _add_vouch_entry(data: dict, gid: str, uid: str, voucher_id: int, voucher_tag: str, note: str):
     data.setdefault("vouches", {}).setdefault(gid, {}).setdefault(uid, [])
     data["vouches"][gid][uid].append({
@@ -6456,6 +7661,32 @@ def _add_vouch_entry(data: dict, gid: str, uid: str, voucher_id: int, voucher_ta
         "note":        note,
         "timestamp":   datetime.now(timezone.utc).isoformat(),
     })
+
+def next_scam_vouch_id(data: dict) -> int:
+    sid = data.get("next_scam_vouch", 1)
+    data["next_scam_vouch"] = sid + 1
+    return sid
+
+def _scam_vouch_cooldown_remaining(data: dict, gid: str, reporter_id: int) -> float:
+    """Returns seconds remaining on the reporter's scam-vouch cooldown, or 0 if clear."""
+    last = data.setdefault("scam_vouch_cooldowns", {}).setdefault(gid, {}).get(str(reporter_id))
+    if last is None:
+        return 0.0
+    elapsed = datetime.now(timezone.utc).timestamp() - last
+    remaining = SCAM_VOUCH_COOLDOWN_SECONDS - elapsed
+    return remaining if remaining > 0 else 0.0
+
+def _set_scam_vouch_cooldown(data: dict, gid: str, reporter_id: int):
+    data.setdefault("scam_vouch_cooldowns", {}).setdefault(gid, {})[str(reporter_id)] = datetime.now(timezone.utc).timestamp()
+
+def find_scam_vouch(data: dict, gid: str, scam_id: int):
+    """Searches all users' scam vouch lists in a guild for a given scam vouch ID.
+    Returns (target_uid, index_in_list, entry) or (None, None, None) if not found."""
+    for target_uid, entries in data.get("scam_vouches", {}).get(gid, {}).items():
+        for i, entry in enumerate(entries):
+            if entry.get("id") == scam_id:
+                return target_uid, i, entry
+    return None, None, None
 
 # .addvouch — staff-only, manually adds N vouches to a user
 @bot.command(name="addvouch")
@@ -6608,14 +7839,25 @@ async def scamvouch_cmd(ctx, member: discord.Member = None, *, note: str = ""):
     data = load_data()
     gid  = str(ctx.guild.id)
     uid  = str(member.id)
+
+    remaining = _scam_vouch_cooldown_remaining(data, gid, ctx.author.id)
+    if remaining > 0:
+        retry_ts = int(datetime.now(timezone.utc).timestamp() + remaining)
+        return await ctx.send(embed=error_embed(
+            f"⏳ You're on cooldown. You can file another scam report <t:{retry_ts}:R>."
+        ))
+
+    scam_id = next_scam_vouch_id(data)
     data.setdefault("scam_vouches", {}).setdefault(gid, {}).setdefault(uid, [])
     data["scam_vouches"][gid][uid].append({
+        "id":            scam_id,
         "reporter_id":   ctx.author.id,
         "reporter_tag":  str(ctx.author),
         "note":          note,
         "timestamp":     datetime.now(timezone.utc).isoformat(),
         "message_url":   ctx.message.jump_url,
     })
+    _set_scam_vouch_cooldown(data, gid, ctx.author.id)
     save_data(data)
     total = len(data["scam_vouches"][gid][uid])
     embed = discord.Embed(
@@ -6623,6 +7865,7 @@ async def scamvouch_cmd(ctx, member: discord.Member = None, *, note: str = ""):
         color=discord.Color.red(),
         timestamp=datetime.now(timezone.utc),
     )
+    embed.set_footer(text=f"Report ID: {scam_id}")
     await ctx.send(embed=embed)
 
 @scamvouch_cmd.error
@@ -6631,6 +7874,65 @@ async def scamvouch_cmd_error(ctx, error):
         return
     if isinstance(error, (commands.MemberNotFound, commands.BadArgument)):
         await ctx.send(embed=error_embed("Member not found. Mention them with @user."))
+
+# .removescamvouch — staff-only, removes a single scam report by its ID
+@bot.command(name="removescamvouch")
+@require_cmd_role("removescamvouch")
+async def removescamvouch_cmd(ctx, scam_id: int = None):
+    if scam_id is None:
+        return await ctx.send(embed=error_embed("Usage: `.removescamvouch <id>`"))
+
+    data = load_data()
+    gid  = str(ctx.guild.id)
+    target_uid, index, entry = find_scam_vouch(data, gid, scam_id)
+
+    if target_uid is None:
+        return await ctx.send(embed=error_embed(f"No scam report found with ID `{scam_id}`."))
+
+    del data["scam_vouches"][gid][target_uid][index]
+    save_data(data)
+
+    embed = discord.Embed(
+        description=f"🗑️ Removed scam report `{scam_id}` (filed against <@{target_uid}> by <@{entry['reporter_id']}>).",
+        color=discord.Color.orange(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    embed.set_footer(text=f"Done by {ctx.author}", icon_url=ctx.author.display_avatar.url)
+    await ctx.send(embed=embed)
+
+@removescamvouch_cmd.error
+async def removescamvouch_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        return
+    if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
+        await ctx.send(embed=error_embed("Usage: `.removescamvouch <id>`"))
+
+@bot.tree.command(name="removescamvouch", description="[Staff] Remove a scam report by its ID")
+@app_commands.describe(scam_id="The ID of the scam report to remove")
+@slash_cmd_role("removescamvouch")
+async def removescamvouch_slash(interaction: discord.Interaction, scam_id: int):
+    data = load_data()
+    gid  = str(interaction.guild.id)
+    target_uid, index, entry = find_scam_vouch(data, gid, scam_id)
+
+    if target_uid is None:
+        return await interaction.response.send_message(
+            embed=error_embed(f"No scam report found with ID `{scam_id}`."), ephemeral=True)
+
+    del data["scam_vouches"][gid][target_uid][index]
+    save_data(data)
+
+    embed = discord.Embed(
+        description=f"🗑️ Removed scam report `{scam_id}` (filed against <@{target_uid}> by <@{entry['reporter_id']}>).",
+        color=discord.Color.orange(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    embed.set_footer(text=f"Done by {interaction.user}", icon_url=interaction.user.display_avatar.url)
+    await interaction.response.send_message(embed=embed)
+
+@removescamvouch_slash.error
+async def removescamvouch_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure): await slash_silent_fail(interaction)
 
 # .vouches — anyone can view
 @bot.command(name="vouches")
@@ -6664,7 +7966,8 @@ async def vouches_cmd(ctx, member: discord.Member = None):
             ts   = int(datetime.fromisoformat(v["timestamp"]).timestamp())
             jump = v.get("message_url")
             note = v.get("note", "").strip()
-            line = f"<@{v['reporter_id']}> · <t:{ts}:R>"
+            rid  = v.get("id")
+            line = f"`#{rid}` · <@{v['reporter_id']}> · <t:{ts}:R>" if rid is not None else f"<@{v['reporter_id']}> · <t:{ts}:R>"
             if note:
                 line += f"\n> {note}"
             if jump:
@@ -9431,7 +10734,11 @@ async def help_cmd(ctx):
 
         "`vouch` `.vouch @user [note]` — Add a vouch for a user\n"
 
-        "`scamvouch` `.scamvouch @user [note]` — File a scam report against a user\n"
+        "`scamvouch` `.scamvouch @user [note]` — File a scam report against a user (1h cooldown per reporter)\n"
+
+        "`removescamvouch` `.removescamvouch <id>` — Staff: remove a scam report by its ID\n"
+
+        "`/removescamvouch` `/removescamvouch <id>` — Same as above (slash version)\n"
 
         "`vouches` `.vouches [@user]` — View a user's vouch profile"), inline=False)
 
@@ -9446,6 +10753,68 @@ async def help_cmd(ctx):
         "`setjreqchannel` `.setjreqchannel #channel` — Set the jail requests channel\n"
 
         "`/setjreqchannel` `/setjreqchannel #channel` — Same as above (slash version)"), inline=False)
+
+    embed.add_field(name="🧑‍💼  Staff Management — Configurable via .setup perms", value=(
+
+        "`infraction` `.infraction @staff <reason>` — Add a staff infraction\n"
+
+        "`/infraction` `/infraction` — Same as above (slash version)\n"
+
+        "`infractions` `.infractions [@staff]` — View a staff member's infractions\n"
+
+        "`/infractions` `/infractions` — Same as above (slash version)\n"
+
+        "`removeinfraction` `.removeinfraction @staff <number>` — Remove an infraction\n"
+
+        "`/removeinfraction` `/removeinfraction` — Same as above (slash version)\n"
+
+        "`promote` `.promote @staff <role> [reason]` — Promote a staff member\n"
+
+        "`/promote` `/promote` — Same as above (slash version)\n"
+
+        "`demote` `.demote @staff <role> [reason]` — Demote a staff member\n"
+
+        "`/demote` `/demote` — Same as above (slash version)\n"
+
+        "`rankhistory` `.rankhistory [@staff]` — View promotion/demotion history\n"
+
+        "`/rankhistory` `/rankhistory` — Same as above (slash version)\n"
+
+        "`stafflist` `.stafflist` — View every staff member, grouped by rank\n"
+
+        "`/stafflist` `/stafflist` — Same as above (slash version)"), inline=False)
+
+    embed.add_field(name="🌴  LOA System — Configurable via .setup perms", value=(
+
+        "`loa` `.loa <duration> <reason>` — Request a Leave of Absence\n"
+
+        "`/loa request` `/loa request` — Same as above (slash version)\n"
+
+        "`loalist` `.loalist` — List pending/active LOAs\n"
+
+        "`/loa list` `/loa list` — Same as above (slash version)\n"
+
+        "`loaapprove` `.loaapprove <id>` — Approve a pending LOA\n"
+
+        "`/loa approve` `/loa approve` — Same as above (slash version)\n"
+
+        "`loadeny` `.loadeny <id> [reason]` — Deny a pending LOA\n"
+
+        "`/loa deny` `/loa deny` — Same as above (slash version)\n"
+
+        "`loaend` `.loaend [@staff]` — End an active LOA\n"
+
+        "`/loa end` `/loa end` — Same as above (slash version)\n"
+
+        "`setloachannel` `.setloachannel #channel` — Set the LOA request channel\n"
+
+        "`/setloachannel` `/setloachannel #channel` — Same as above (slash version)"), inline=False)
+
+    embed.add_field(name="📣  Mass Echo — Configurable via .setup perms", value=(
+
+        "`massecho` `.massecho <message>` — Broadcast a message to many channels\n"
+
+        "`/massecho` `/massecho` — Same as above (slash version)"), inline=False)
 
     embed.set_footer(text=f"Requested by {ctx.author}  •  Use .setup to get started",
 
@@ -9638,6 +11007,1272 @@ async def sos_slash(interaction: discord.Interaction, player1: discord.Member, p
     game.message = await interaction.original_response()
 
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  STAFF MANAGEMENT — INFRACTIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _staff_infraction_embed(member, infractions) -> discord.Embed:
+    embed = discord.Embed(title=f"⚠️ Staff Infractions — {member}", color=discord.Color.orange(),
+                          timestamp=datetime.now(timezone.utc))
+    embed.set_thumbnail(url=member.display_avatar.url)
+    if not infractions:
+        embed.description = "This staff member has no infractions on record."
+    else:
+        for inf in infractions:
+            embed.add_field(
+                name=f"#{inf['number']} — {inf.get('severity', 'Minor')} — {inf['timestamp'][:10]}",
+                value=f"**Reason:** {inf['reason']}\n**Issued by:** {inf['mod_tag']}", inline=False)
+    embed.set_footer(text=f"Total infractions: {len(infractions)}")
+    return embed
+
+
+@bot.command(name="infraction", aliases=["staffinfraction", "strike"])
+@require_cmd_role("infraction")
+async def infraction_cmd(ctx, member: discord.Member = None, *, reason="No reason provided"):
+    if not member:
+        return await ctx.send(embed=syntax_embed("infraction"))
+    if not hierarchy_ok(ctx.author, member):
+        return await ctx.send(embed=error_embed("You cannot infract someone with an equal or higher role."))
+    data = load_data()
+    num = add_staff_infraction(data, ctx.guild.id, member.id, ctx.author, reason)
+    cid = add_case(data, ctx.guild.id, "Infraction", ctx.author, member, reason)
+    await dm_member(member, "Infraction", ctx.guild.name, reason, cid,
+                    moderator=ctx.author, extra=f"This is infraction **#{num}** on your staff record.")
+    await post_mod_log(ctx.guild, cid, "Infraction", ctx.author, member, reason,
+                        extra=f"Staff infraction #{num}")
+    await ctx.send(embed=result_embed("Infraction", member, reason, cid,
+                                      extra=f"This is infraction **#{num}** on this staff member's record."))
+
+
+@infraction_cmd.error
+async def infraction_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to issue staff infractions."))
+    elif isinstance(error, (commands.MemberNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Couldn't find that staff member. Mention them with @user."))
+
+
+@bot.command(name="infractions", aliases=["staffinfractions"])
+@require_cmd_role("infractions")
+async def infractions_cmd(ctx, member: discord.Member = None):
+    if not member:
+        return await ctx.send(embed=syntax_embed("infractions"))
+    data = load_data()
+    infs = get_staff_infractions(data, ctx.guild.id, member.id)
+    await ctx.send(embed=_staff_infraction_embed(member, infs))
+
+
+@bot.command(name="removeinfraction", aliases=["rminfraction", "delinfraction"])
+@require_cmd_role("removeinfraction")
+async def remove_infraction_cmd(ctx, member: discord.Member = None, number: int = None):
+    if not member or number is None:
+        return await ctx.send(embed=syntax_embed("removeinfraction"))
+    data = load_data()
+    ok = remove_staff_infraction(data, ctx.guild.id, member.id, number)
+    if not ok:
+        return await ctx.send(embed=error_embed(f"Infraction #{number} not found for **{member.display_name}**."))
+    cid = add_case(data, ctx.guild.id, "Remove Infraction", ctx.author, member, f"Removed infraction #{number}")
+    await ctx.send(embed=result_embed("Remove Infraction", member, f"Removed infraction #{number}", cid))
+
+
+@bot.tree.command(name="infraction", description="[Staff Mgmt] Issue a staff infraction")
+@app_commands.describe(member="Staff member", reason="Reason")
+@slash_cmd_role("infraction")
+async def infraction_slash(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
+    await interaction.response.defer()
+    if not hierarchy_ok(interaction.user, member):
+        return await interaction.followup.send(embed=error_embed("You cannot infract someone with an equal or higher role."), ephemeral=True)
+    data = load_data()
+    num = add_staff_infraction(data, interaction.guild.id, member.id, interaction.user, reason)
+    cid = add_case(data, interaction.guild.id, "Infraction", interaction.user, member, reason)
+    await dm_member(member, "Infraction", interaction.guild.name, reason, cid,
+                    moderator=interaction.user, extra=f"This is infraction **#{num}** on your staff record.")
+    await post_mod_log(interaction.guild, cid, "Infraction", interaction.user, member, reason,
+                        extra=f"Staff infraction #{num}")
+    await interaction.followup.send(embed=result_embed("Infraction", member, reason, cid,
+                                    extra=f"This is infraction **#{num}** on this staff member's record."))
+
+
+@infraction_slash.error
+async def infraction_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
+
+@bot.tree.command(name="infractions", description="[Staff Mgmt] View a staff member's infractions")
+@app_commands.describe(member="Staff member")
+@slash_cmd_role("infractions")
+async def infractions_slash(interaction: discord.Interaction, member: discord.Member):
+    await interaction.response.defer()
+    data = load_data()
+    infs = get_staff_infractions(data, interaction.guild.id, member.id)
+    await interaction.followup.send(embed=_staff_infraction_embed(member, infs))
+
+
+@infractions_slash.error
+async def infractions_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
+
+@bot.tree.command(name="removeinfraction", description="[Staff Mgmt] Remove a staff infraction")
+@app_commands.describe(member="Staff member", number="Infraction number")
+@slash_cmd_role("removeinfraction")
+async def remove_infraction_slash(interaction: discord.Interaction, member: discord.Member, number: int):
+    await interaction.response.defer()
+    data = load_data()
+    ok = remove_staff_infraction(data, interaction.guild.id, member.id, number)
+    if not ok:
+        return await interaction.followup.send(embed=error_embed(f"Infraction #{number} not found for **{member.display_name}**."))
+    cid = add_case(data, interaction.guild.id, "Remove Infraction", interaction.user, member, f"Removed infraction #{number}")
+    await interaction.followup.send(embed=result_embed("Remove Infraction", member, f"Removed infraction #{number}", cid))
+
+
+@remove_infraction_slash.error
+async def remove_infraction_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  STAFF MANAGEMENT — PROMOTIONS / DEMOTIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def _do_rank_change(guild, moderator, member, new_role: discord.Role, reason, change_type: str):
+    old_role = member.top_role if member.top_role.name != "@everyone" else None
+    try:
+        await member.add_roles(new_role, reason=f"{change_type} by {moderator}: {reason}")
+    except discord.Forbidden:
+        return None, error_embed("I don't have permission to assign that role. Check my role position and permissions.")
+
+    data = load_data()
+    num = add_rank_change(data, guild.id, member.id, moderator, change_type,
+                          old_role.name if old_role else "None", new_role.name, reason)
+    cid = add_case(data, guild.id, change_type, moderator, member, reason)
+
+    await dm_member(member, change_type, guild.name, reason, cid, moderator=moderator,
+                    extra=f"New rank: **{new_role.name}**")
+    await post_mod_log(guild, cid, change_type, moderator, member, reason,
+                        extra=f"New rank: **{new_role.name}**  •  Rank change #{num}")
+
+    embed = result_embed(change_type, member, reason, cid, extra=f"New rank: **{new_role.name}**")
+    return embed, None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PROMOTION / DEMOTION / INFRACTION — REQUEST + APPROVAL SYSTEM
+#
+#  Mirrors the jail-request flow: a staff member submits a request, which is
+#  posted (with Approve / Deny buttons) to a channel configurable via
+#  .setup perms -> Promotion Channel / Demotion Channel / Infraction Channel.
+#  Head executives / admins (or anyone with the underlying promote / demote /
+#  infraction permission) can then approve or deny it from the embed itself.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def build_promotion_request_embed(rid: int, requester, target, role: discord.Role, reason: str, status: str = "pending") -> discord.Embed:
+    color = discord.Color.orange() if status == "pending" else (discord.Color.green() if status == "approved" else discord.Color.red())
+    icon  = "🟡" if status == "pending" else ("✅" if status == "approved" else "❌")
+    embed = discord.Embed(
+        title=f"⬆️ Promotion Request #{rid}  •  {icon} {status.title()}",
+        color=color, timestamp=datetime.now(timezone.utc),
+    )
+    embed.add_field(name="👤 Target",       value=f"{target}", inline=True)
+    embed.add_field(name="🛡️ Requested by", value=f"{requester}", inline=True)
+    embed.add_field(name="🎖️ New Role",     value=role.mention if isinstance(role, discord.Role) else str(role), inline=True)
+    embed.add_field(name="📄 Reason",       value=reason or "No reason provided", inline=False)
+    embed.set_footer(text=f"Promotion Request #{rid} — pending approval")
+    if hasattr(target, "display_avatar"):
+        embed.set_thumbnail(url=target.display_avatar.url)
+    return embed
+
+
+def build_demotion_request_embed(rid: int, requester, target, role: discord.Role, reason: str, status: str = "pending", remove_role: discord.Role = None) -> discord.Embed:
+    color = discord.Color.orange() if status == "pending" else (discord.Color.green() if status == "approved" else discord.Color.red())
+    icon  = "🟡" if status == "pending" else ("✅" if status == "approved" else "❌")
+    embed = discord.Embed(
+        title=f"⬇️ Demotion Request #{rid}  •  {icon} {status.title()}",
+        color=color, timestamp=datetime.now(timezone.utc),
+    )
+    embed.add_field(name="👤 Target",       value=f"{target}", inline=True)
+    embed.add_field(name="🛡️ Requested by", value=f"{requester}", inline=True)
+    embed.add_field(name="🎖️ New Role",     value=role.mention if isinstance(role, discord.Role) else str(role), inline=True)
+    if remove_role:
+        embed.add_field(name="🗑️ Role Removed on Approval", value=remove_role.mention, inline=True)
+    embed.add_field(name="📄 Reason",       value=reason or "No reason provided", inline=False)
+    embed.set_footer(text=f"Demotion Request #{rid} — pending approval")
+    if hasattr(target, "display_avatar"):
+        embed.set_thumbnail(url=target.display_avatar.url)
+    return embed
+
+
+def build_infraction_request_embed(rid: int, requester, target, reason: str, status: str = "pending") -> discord.Embed:
+    color = discord.Color.orange() if status == "pending" else (discord.Color.green() if status == "approved" else discord.Color.red())
+    icon  = "🟡" if status == "pending" else ("✅" if status == "approved" else "❌")
+    embed = discord.Embed(
+        title=f"⚠️ Infraction Request #{rid}  •  {icon} {status.title()}",
+        color=color, timestamp=datetime.now(timezone.utc),
+    )
+    embed.add_field(name="👤 Target",       value=f"{target}", inline=True)
+    embed.add_field(name="🛡️ Requested by", value=f"{requester}", inline=True)
+    embed.add_field(name="📄 Reason",       value=reason or "No reason provided", inline=False)
+    embed.set_footer(text=f"Infraction Request #{rid} — pending approval")
+    if hasattr(target, "display_avatar"):
+        embed.set_thumbnail(url=target.display_avatar.url)
+    return embed
+
+
+class PromotionRequestActionView(discord.ui.View):
+
+    def __init__(self, rid: int, guild_id: int):
+        super().__init__(timeout=None)
+        self.rid       = rid
+        self.guild_id  = guild_id
+        self._actioned = False
+
+    def _disable_all(self):
+        for child in self.children:
+            child.disabled = True
+
+    @discord.ui.button(label="Approve", style=discord.ButtonStyle.success, emoji="✅")
+    async def approve_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not member_has_cmd_perm(interaction.user, "promote"):
+            return await interaction.response.send_message(
+                embed=error_embed("You don't have permission to approve promotion requests."), ephemeral=True)
+        if self._actioned:
+            return await interaction.response.send_message(
+                embed=warn_embed("This promotion request has already been actioned."), ephemeral=True)
+
+        data = load_data()
+        req  = get_promotion_request(data, self.guild_id, self.rid)
+        if not req:
+            return await interaction.response.send_message(
+                embed=error_embed("Could not find this promotion request in storage."), ephemeral=True)
+
+        guild = interaction.guild
+        try:
+            target = await guild.fetch_member(req["target_id"])
+        except discord.NotFound:
+            return await interaction.response.send_message(
+                embed=error_embed("Target is no longer in the server."), ephemeral=True)
+
+        role = guild.get_role(req["role_id"])
+        if not role:
+            return await interaction.response.send_message(
+                embed=error_embed("That role no longer exists."), ephemeral=True)
+
+        await interaction.response.defer()
+
+        embed, err = await _do_rank_change(guild, interaction.user, target, role, req["reason"], "Promotion")
+        if err:
+            return await interaction.followup.send(embed=err, ephemeral=True)
+
+        _mark_request_status(load_data(), "promotion_requests", self.guild_id, self.rid, "approved", interaction.user)
+
+        self._actioned = True
+        self._disable_all()
+        try:
+            req_embed = build_promotion_request_embed(self.rid, req["requester_tag"], target, role, req["reason"], status="approved")
+            await interaction.message.edit(embed=req_embed, view=self)
+        except Exception:
+            pass
+
+        await interaction.followup.send(embed=success_embed(f"Promotion Request #{self.rid} approved — **{target}** is now **{role.name}**."))
+
+    @discord.ui.button(label="Deny", style=discord.ButtonStyle.danger, emoji="🗑️")
+    async def deny_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not member_has_cmd_perm(interaction.user, "promote"):
+            return await interaction.response.send_message(
+                embed=error_embed("You don't have permission to deny promotion requests."), ephemeral=True)
+        if self._actioned:
+            return await interaction.response.send_message(
+                embed=warn_embed("This promotion request has already been actioned."), ephemeral=True)
+
+        data = load_data()
+        req  = get_promotion_request(data, self.guild_id, self.rid)
+        if req:
+            _mark_request_status(data, "promotion_requests", self.guild_id, self.rid, "denied", interaction.user)
+
+        self._actioned = True
+        self._disable_all()
+        await interaction.response.edit_message(view=self)
+        if req:
+            guild  = interaction.guild
+            target = guild.get_member(req["target_id"]) or req["target_tag"]
+            role   = guild.get_role(req["role_id"])
+            try:
+                req_embed = build_promotion_request_embed(self.rid, req["requester_tag"], target, role or req["role_name"], req["reason"], status="denied")
+                await interaction.message.edit(embed=req_embed, view=self)
+            except Exception:
+                pass
+        await interaction.followup.send(embed=info_embed(f"Promotion Request #{self.rid} denied by {interaction.user.mention}."))
+
+
+class DemotionRequestActionView(discord.ui.View):
+
+    def __init__(self, rid: int, guild_id: int):
+        super().__init__(timeout=None)
+        self.rid       = rid
+        self.guild_id  = guild_id
+        self._actioned = False
+
+    def _disable_all(self):
+        for child in self.children:
+            child.disabled = True
+
+    @discord.ui.button(label="Approve", style=discord.ButtonStyle.success, emoji="✅")
+    async def approve_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not member_has_cmd_perm(interaction.user, "demote"):
+            return await interaction.response.send_message(
+                embed=error_embed("You don't have permission to approve demotion requests."), ephemeral=True)
+        if self._actioned:
+            return await interaction.response.send_message(
+                embed=warn_embed("This demotion request has already been actioned."), ephemeral=True)
+
+        data = load_data()
+        req  = get_demotion_request(data, self.guild_id, self.rid)
+        if not req:
+            return await interaction.response.send_message(
+                embed=error_embed("Could not find this demotion request in storage."), ephemeral=True)
+
+        guild = interaction.guild
+        try:
+            target = await guild.fetch_member(req["target_id"])
+        except discord.NotFound:
+            return await interaction.response.send_message(
+                embed=error_embed("Target is no longer in the server."), ephemeral=True)
+
+        role = guild.get_role(req["role_id"])
+        if not role:
+            return await interaction.response.send_message(
+                embed=error_embed("That role no longer exists."), ephemeral=True)
+
+        await interaction.response.defer()
+
+        embed, err = await _do_rank_change(guild, interaction.user, target, role, req["reason"], "Demotion")
+        if err:
+            return await interaction.followup.send(embed=err, ephemeral=True)
+
+        # Remove the configured "role removed on demotion" role, if any and if the target has it.
+        remove_role = None
+        remove_role_id = get_demote_remove_role_id(guild.id)
+        removed_ok = False
+        if remove_role_id:
+            remove_role = guild.get_role(remove_role_id)
+            if remove_role and remove_role in target.roles:
+                try:
+                    await target.remove_roles(remove_role, reason=f"Demotion #{self.rid} approved by {interaction.user}")
+                    removed_ok = True
+                except discord.Forbidden:
+                    await interaction.followup.send(
+                        embed=warn_embed(f"Demotion applied, but I don't have permission to remove {remove_role.mention}."),
+                        ephemeral=True)
+
+        _mark_request_status(load_data(), "demotion_requests", self.guild_id, self.rid, "approved", interaction.user)
+
+        self._actioned = True
+        self._disable_all()
+        try:
+            req_embed = build_demotion_request_embed(self.rid, req["requester_tag"], target, role, req["reason"], status="approved", remove_role=remove_role)
+            await interaction.message.edit(embed=req_embed, view=self)
+        except Exception:
+            pass
+
+        note = f"Demotion Request #{self.rid} approved — **{target}** is now **{role.name}**."
+        if removed_ok:
+            note += f" **{remove_role.name}** was removed."
+        await interaction.followup.send(embed=success_embed(note))
+
+    @discord.ui.button(label="Deny", style=discord.ButtonStyle.danger, emoji="🗑️")
+    async def deny_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not member_has_cmd_perm(interaction.user, "demote"):
+            return await interaction.response.send_message(
+                embed=error_embed("You don't have permission to deny demotion requests."), ephemeral=True)
+        if self._actioned:
+            return await interaction.response.send_message(
+                embed=warn_embed("This demotion request has already been actioned."), ephemeral=True)
+
+        data = load_data()
+        req  = get_demotion_request(data, self.guild_id, self.rid)
+        if req:
+            _mark_request_status(data, "demotion_requests", self.guild_id, self.rid, "denied", interaction.user)
+
+        self._actioned = True
+        self._disable_all()
+        await interaction.response.edit_message(view=self)
+        if req:
+            guild  = interaction.guild
+            target = guild.get_member(req["target_id"]) or req["target_tag"]
+            role   = guild.get_role(req["role_id"])
+            try:
+                req_embed = build_demotion_request_embed(self.rid, req["requester_tag"], target, role or req["role_name"], req["reason"], status="denied")
+                await interaction.message.edit(embed=req_embed, view=self)
+            except Exception:
+                pass
+        await interaction.followup.send(embed=info_embed(f"Demotion Request #{self.rid} denied by {interaction.user.mention}."))
+
+
+class InfractionRequestActionView(discord.ui.View):
+
+    def __init__(self, rid: int, guild_id: int):
+        super().__init__(timeout=None)
+        self.rid       = rid
+        self.guild_id  = guild_id
+        self._actioned = False
+
+    def _disable_all(self):
+        for child in self.children:
+            child.disabled = True
+
+    @discord.ui.button(label="Approve", style=discord.ButtonStyle.success, emoji="✅")
+    async def approve_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not member_has_cmd_perm(interaction.user, "infraction"):
+            return await interaction.response.send_message(
+                embed=error_embed("You don't have permission to approve infraction requests."), ephemeral=True)
+        if self._actioned:
+            return await interaction.response.send_message(
+                embed=warn_embed("This infraction request has already been actioned."), ephemeral=True)
+
+        data = load_data()
+        req  = get_infraction_request(data, self.guild_id, self.rid)
+        if not req:
+            return await interaction.response.send_message(
+                embed=error_embed("Could not find this infraction request in storage."), ephemeral=True)
+
+        guild = interaction.guild
+        try:
+            target = await guild.fetch_member(req["target_id"])
+        except discord.NotFound:
+            return await interaction.response.send_message(
+                embed=error_embed("Target is no longer in the server."), ephemeral=True)
+
+        await interaction.response.defer()
+
+        num = add_staff_infraction(data, guild.id, target.id, interaction.user, req["reason"])
+        cid = add_case(data, guild.id, "Infraction", interaction.user, target, req["reason"])
+        _mark_request_status(data, "infraction_requests", self.guild_id, self.rid, "approved", interaction.user)
+
+        await dm_member(target, "Infraction", guild.name, req["reason"], cid,
+                        moderator=interaction.user, extra=f"This is infraction **#{num}** on your staff record.")
+        await post_mod_log(guild, cid, "Infraction", interaction.user, target, req["reason"],
+                           extra=f"Staff infraction #{num}  •  Actioned from Infraction Request #{self.rid}")
+
+        self._actioned = True
+        self._disable_all()
+        try:
+            req_embed = build_infraction_request_embed(self.rid, req["requester_tag"], target, req["reason"], status="approved")
+            await interaction.message.edit(embed=req_embed, view=self)
+        except Exception:
+            pass
+
+        await interaction.followup.send(embed=success_embed(
+            f"Infraction Request #{self.rid} approved — logged as **Case #{cid}** (infraction **#{num}**) for **{target}**."))
+
+    @discord.ui.button(label="Deny", style=discord.ButtonStyle.danger, emoji="🗑️")
+    async def deny_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not member_has_cmd_perm(interaction.user, "infraction"):
+            return await interaction.response.send_message(
+                embed=error_embed("You don't have permission to deny infraction requests."), ephemeral=True)
+        if self._actioned:
+            return await interaction.response.send_message(
+                embed=warn_embed("This infraction request has already been actioned."), ephemeral=True)
+
+        data = load_data()
+        req  = get_infraction_request(data, self.guild_id, self.rid)
+        if req:
+            _mark_request_status(data, "infraction_requests", self.guild_id, self.rid, "denied", interaction.user)
+
+        self._actioned = True
+        self._disable_all()
+        await interaction.response.edit_message(view=self)
+        if req:
+            guild  = interaction.guild
+            target = guild.get_member(req["target_id"]) or req["target_tag"]
+            try:
+                req_embed = build_infraction_request_embed(self.rid, req["requester_tag"], target, req["reason"], status="denied")
+                await interaction.message.edit(embed=req_embed, view=self)
+            except Exception:
+                pass
+        await interaction.followup.send(embed=info_embed(f"Infraction Request #{self.rid} denied by {interaction.user.mention}."))
+
+
+@bot.command(name="promotereq", aliases=["promoterequest", "reqpromote"])
+@require_staff()
+async def promotereq_cmd(ctx, member: discord.Member = None, role: discord.Role = None, *, reason="No reason provided"):
+    if not member or not role:
+        return await ctx.send(embed=syntax_embed("promote"))
+    if not hierarchy_ok(ctx.author, member):
+        return await ctx.send(embed=error_embed("You cannot request a promotion for someone with an equal or higher role than you."))
+    data = load_data()
+    rid  = create_promotion_request(data, ctx.guild.id, ctx.author, member, role, reason)
+    embed = build_promotion_request_embed(rid, ctx.author, member, role, reason)
+    channel = get_promotion_channel(ctx.guild)
+    if channel:
+        await channel.send(embed=embed, view=PromotionRequestActionView(rid, ctx.guild.id))
+    await ctx.send(embed=success_embed(f"Promotion request **#{rid}** submitted for **{member}**. Awaiting approval."))
+
+
+@promotereq_cmd.error
+async def promotereq_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to request promotions."))
+    elif isinstance(error, (commands.MemberNotFound, commands.RoleNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Usage: `.promotereq @staff @role [reason]`"))
+
+
+@bot.command(name="demotereq", aliases=["demoterequest", "reqdemote"])
+@require_staff()
+async def demotereq_cmd(ctx, member: discord.Member = None, role: discord.Role = None, *, reason="No reason provided"):
+    if not member or not role:
+        return await ctx.send(embed=syntax_embed("demote"))
+    if not hierarchy_ok(ctx.author, member):
+        return await ctx.send(embed=error_embed("You cannot request a demotion for someone with an equal or higher role than you."))
+    data = load_data()
+    rid  = create_demotion_request(data, ctx.guild.id, ctx.author, member, role, reason)
+    remove_role_id = get_demote_remove_role_id(ctx.guild.id)
+    remove_role    = ctx.guild.get_role(remove_role_id) if remove_role_id else None
+    embed = build_demotion_request_embed(rid, ctx.author, member, role, reason, remove_role=remove_role)
+    channel = get_demotion_channel(ctx.guild)
+    if channel:
+        await channel.send(embed=embed, view=DemotionRequestActionView(rid, ctx.guild.id))
+    await ctx.send(embed=success_embed(f"Demotion request **#{rid}** submitted for **{member}**. Awaiting approval."))
+
+
+@demotereq_cmd.error
+async def demotereq_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to request demotions."))
+    elif isinstance(error, (commands.MemberNotFound, commands.RoleNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Usage: `.demotereq @staff @role [reason]`"))
+
+
+@bot.command(name="infractionreq", aliases=["infractionrequest", "reqinfraction"])
+@require_staff()
+async def infractionreq_cmd(ctx, member: discord.Member = None, *, reason="No reason provided"):
+    if not member:
+        return await ctx.send(embed=syntax_embed("infraction"))
+    if not hierarchy_ok(ctx.author, member):
+        return await ctx.send(embed=error_embed("You cannot request an infraction for someone with an equal or higher role."))
+    data = load_data()
+    rid  = create_infraction_request(data, ctx.guild.id, ctx.author, member, reason)
+    embed = build_infraction_request_embed(rid, ctx.author, member, reason)
+    channel = get_infraction_channel(ctx.guild)
+    if channel:
+        await channel.send(embed=embed, view=InfractionRequestActionView(rid, ctx.guild.id))
+    await ctx.send(embed=success_embed(f"Infraction request **#{rid}** submitted for **{member}**. Awaiting approval."))
+
+
+@infractionreq_cmd.error
+async def infractionreq_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to request staff infractions."))
+    elif isinstance(error, (commands.MemberNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Couldn't find that staff member. Mention them with @user."))
+
+
+@bot.tree.command(name="promoterequest", description="[Staff Mgmt] Request a staff promotion for head execs/admins to approve")
+@app_commands.describe(member="Staff member", role="New role", reason="Reason")
+async def promotereq_slash(interaction: discord.Interaction, member: discord.Member, role: discord.Role, reason: str = "No reason provided"):
+    if not is_staff(interaction.user):
+        return await interaction.response.send_message(embed=error_embed("You don't have permission to request promotions."), ephemeral=True)
+    await interaction.response.defer()
+    if not hierarchy_ok(interaction.user, member):
+        return await interaction.followup.send(embed=error_embed("You cannot request a promotion for someone with an equal or higher role than you."), ephemeral=True)
+    data = load_data()
+    rid  = create_promotion_request(data, interaction.guild.id, interaction.user, member, role, reason)
+    embed = build_promotion_request_embed(rid, interaction.user, member, role, reason)
+    channel = get_promotion_channel(interaction.guild)
+    if channel:
+        await channel.send(embed=embed, view=PromotionRequestActionView(rid, interaction.guild.id))
+    await interaction.followup.send(embed=success_embed(f"Promotion request **#{rid}** submitted for **{member}**. Awaiting approval."))
+
+
+@bot.tree.command(name="demoterequest", description="[Staff Mgmt] Request a staff demotion for head execs/admins to approve")
+@app_commands.describe(member="Staff member", role="New role", reason="Reason")
+async def demotereq_slash(interaction: discord.Interaction, member: discord.Member, role: discord.Role, reason: str = "No reason provided"):
+    if not is_staff(interaction.user):
+        return await interaction.response.send_message(embed=error_embed("You don't have permission to request demotions."), ephemeral=True)
+    await interaction.response.defer()
+    if not hierarchy_ok(interaction.user, member):
+        return await interaction.followup.send(embed=error_embed("You cannot request a demotion for someone with an equal or higher role than you."), ephemeral=True)
+    data = load_data()
+    rid  = create_demotion_request(data, interaction.guild.id, interaction.user, member, role, reason)
+    remove_role_id = get_demote_remove_role_id(interaction.guild.id)
+    remove_role    = interaction.guild.get_role(remove_role_id) if remove_role_id else None
+    embed = build_demotion_request_embed(rid, interaction.user, member, role, reason, remove_role=remove_role)
+    channel = get_demotion_channel(interaction.guild)
+    if channel:
+        await channel.send(embed=embed, view=DemotionRequestActionView(rid, interaction.guild.id))
+    await interaction.followup.send(embed=success_embed(f"Demotion request **#{rid}** submitted for **{member}**. Awaiting approval."))
+
+
+@bot.tree.command(name="infractionrequest", description="[Staff Mgmt] Request a staff infraction for head execs/admins to approve")
+@app_commands.describe(member="Staff member", reason="Reason")
+async def infractionreq_slash(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
+    if not is_staff(interaction.user):
+        return await interaction.response.send_message(embed=error_embed("You don't have permission to request staff infractions."), ephemeral=True)
+    await interaction.response.defer()
+    if not hierarchy_ok(interaction.user, member):
+        return await interaction.followup.send(embed=error_embed("You cannot request an infraction for someone with an equal or higher role."), ephemeral=True)
+    data = load_data()
+    rid  = create_infraction_request(data, interaction.guild.id, interaction.user, member, reason)
+    embed = build_infraction_request_embed(rid, interaction.user, member, reason)
+    channel = get_infraction_channel(interaction.guild)
+    if channel:
+        await channel.send(embed=embed, view=InfractionRequestActionView(rid, interaction.guild.id))
+    await interaction.followup.send(embed=success_embed(f"Infraction request **#{rid}** submitted for **{member}**. Awaiting approval."))
+
+
+@bot.command(name="promote")
+@require_cmd_role("promote")
+async def promote_cmd(ctx, member: discord.Member = None, role: discord.Role = None, *, reason="No reason provided"):
+    if not member or not role:
+        return await ctx.send(embed=syntax_embed("promote"))
+    if not hierarchy_ok(ctx.author, member):
+        return await ctx.send(embed=error_embed("You cannot promote someone with an equal or higher role than you."))
+    if role >= ctx.author.top_role and not is_admin(ctx.author):
+        return await ctx.send(embed=error_embed("You cannot assign a role equal to or higher than your own top role."))
+    embed, err = await _do_rank_change(ctx.guild, ctx.author, member, role, reason, "Promotion")
+    await ctx.send(embed=err or embed)
+
+
+@promote_cmd.error
+async def promote_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to promote staff."))
+    elif isinstance(error, (commands.MemberNotFound, commands.RoleNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Usage: `.promote @staff @role [reason]`"))
+
+
+@bot.command(name="demote")
+@require_cmd_role("demote")
+async def demote_cmd(ctx, member: discord.Member = None, role: discord.Role = None, *, reason="No reason provided"):
+    if not member or not role:
+        return await ctx.send(embed=syntax_embed("demote"))
+    if not hierarchy_ok(ctx.author, member):
+        return await ctx.send(embed=error_embed("You cannot demote someone with an equal or higher role than you."))
+    if role >= ctx.author.top_role and not is_admin(ctx.author):
+        return await ctx.send(embed=error_embed("You cannot assign a role equal to or higher than your own top role."))
+    embed, err = await _do_rank_change(ctx.guild, ctx.author, member, role, reason, "Demotion")
+    await ctx.send(embed=err or embed)
+
+
+@demote_cmd.error
+async def demote_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to demote staff."))
+    elif isinstance(error, (commands.MemberNotFound, commands.RoleNotFound, commands.BadArgument)):
+        await ctx.send(embed=error_embed("Usage: `.demote @staff @role [reason]`"))
+
+
+@bot.command(name="rankhistory", aliases=["rankhist"])
+@require_cmd_role("rankhistory")
+async def rankhistory_cmd(ctx, member: discord.Member = None):
+    if not member:
+        return await ctx.send(embed=syntax_embed("rankhistory"))
+    data = load_data()
+    hist = get_rank_history(data, ctx.guild.id, member.id)
+    embed = discord.Embed(title=f"📜 Rank History — {member}", color=discord.Color.blurple(),
+                          timestamp=datetime.now(timezone.utc))
+    embed.set_thumbnail(url=member.display_avatar.url)
+    if not hist:
+        embed.description = "No promotions or demotions on record for this staff member."
+    else:
+        for h in hist:
+            icon = "⬆️" if h["type"] == "Promotion" else "⬇️"
+            embed.add_field(
+                name=f"{icon} #{h['number']} — {h['type']} — {h['timestamp'][:10]}",
+                value=f"**{h['old_role']}** → **{h['new_role']}**\n**Reason:** {h['reason']}\n**By:** {h['mod_tag']}",
+                inline=False)
+    await ctx.send(embed=embed)
+
+
+@bot.tree.command(name="promote", description="[Staff Mgmt] Promote a staff member")
+@app_commands.describe(member="Staff member", role="New role", reason="Reason")
+@slash_cmd_role("promote")
+async def promote_slash(interaction: discord.Interaction, member: discord.Member, role: discord.Role, reason: str = "No reason provided"):
+    await interaction.response.defer()
+    if not hierarchy_ok(interaction.user, member):
+        return await interaction.followup.send(embed=error_embed("You cannot promote someone with an equal or higher role than you."), ephemeral=True)
+    if role >= interaction.user.top_role and not is_admin(interaction.user):
+        return await interaction.followup.send(embed=error_embed("You cannot assign a role equal to or higher than your own top role."), ephemeral=True)
+    embed, err = await _do_rank_change(interaction.guild, interaction.user, member, role, reason, "Promotion")
+    await interaction.followup.send(embed=err or embed)
+
+
+@promote_slash.error
+async def promote_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
+
+@bot.tree.command(name="demote", description="[Staff Mgmt] Demote a staff member")
+@app_commands.describe(member="Staff member", role="New role", reason="Reason")
+@slash_cmd_role("demote")
+async def demote_slash(interaction: discord.Interaction, member: discord.Member, role: discord.Role, reason: str = "No reason provided"):
+    await interaction.response.defer()
+    if not hierarchy_ok(interaction.user, member):
+        return await interaction.followup.send(embed=error_embed("You cannot demote someone with an equal or higher role than you."), ephemeral=True)
+    if role >= interaction.user.top_role and not is_admin(interaction.user):
+        return await interaction.followup.send(embed=error_embed("You cannot assign a role equal to or higher than your own top role."), ephemeral=True)
+    embed, err = await _do_rank_change(interaction.guild, interaction.user, member, role, reason, "Demotion")
+    await interaction.followup.send(embed=err or embed)
+
+
+@demote_slash.error
+async def demote_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
+
+@bot.tree.command(name="rankhistory", description="[Staff Mgmt] View a staff member's rank history")
+@app_commands.describe(member="Staff member")
+@slash_cmd_role("rankhistory")
+async def rankhistory_slash(interaction: discord.Interaction, member: discord.Member):
+    await interaction.response.defer()
+    data = load_data()
+    hist = get_rank_history(data, interaction.guild.id, member.id)
+    embed = discord.Embed(title=f"📜 Rank History — {member}", color=discord.Color.blurple(),
+                          timestamp=datetime.now(timezone.utc))
+    embed.set_thumbnail(url=member.display_avatar.url)
+    if not hist:
+        embed.description = "No promotions or demotions on record for this staff member."
+    else:
+        for h in hist:
+            icon = "⬆️" if h["type"] == "Promotion" else "⬇️"
+            embed.add_field(
+                name=f"{icon} #{h['number']} — {h['type']} — {h['timestamp'][:10]}",
+                value=f"**{h['old_role']}** → **{h['new_role']}**\n**Reason:** {h['reason']}\n**By:** {h['mod_tag']}",
+                inline=False)
+    await interaction.followup.send(embed=embed)
+
+
+@rankhistory_slash.error
+async def rankhistory_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  STAFF MANAGEMENT — LOA (LEAVE OF ABSENCE) SYSTEM
+# ══════════════════════════════════════════════════════════════════════════════
+
+@bot.command(name="loa")
+@require_staff()
+async def loa_cmd(ctx, *, args: str = None):
+    if not args:
+        return await ctx.send(embed=syntax_embed("loa"))
+    duration, reason = split_duration_and_reason(args)
+    if duration is None:
+        return await ctx.send(embed=error_embed("Couldn't parse a duration. Example: `.loa 7d family vacation`"))
+    if not reason:
+        reason = "No reason provided"
+    data = load_data()
+    start = datetime.now(timezone.utc)
+    end = start + timedelta(seconds=duration)
+    lid = create_loa_request(data, ctx.guild.id, ctx.author.id, str(ctx.author), start, end, reason)
+    embed = discord.Embed(title=f"🌴 LOA Request #{lid}", color=discord.Color.blurple(),
+                          timestamp=datetime.now(timezone.utc))
+    embed.add_field(name="Staff Member", value=str(ctx.author), inline=True)
+    embed.add_field(name="Duration", value=fmt_duration(duration), inline=True)
+    embed.add_field(name="Ends", value=f"<t:{int(end.timestamp())}:R>", inline=True)
+    embed.add_field(name="Reason", value=reason, inline=False)
+    embed.set_footer(text=f"LOA #{lid} — pending approval  •  Use .loaapprove {lid} or .loadeny {lid}")
+    channel_id = get_loa_channel_id(ctx.guild.id)
+    channel = ctx.guild.get_channel(channel_id) if channel_id else discord.utils.get(ctx.guild.text_channels, name=MOD_LOG_CHANNEL_NAME)
+    if channel:
+        await channel.send(embed=embed)
+    await ctx.send(embed=success_embed(f"LOA request **#{lid}** submitted for **{fmt_duration(duration)}**. Awaiting approval."))
+
+
+@loa_cmd.error
+async def loa_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to request an LOA."))
+
+
+@bot.command(name="loalist")
+@require_cmd_role("loalist")
+async def loalist_cmd(ctx):
+    data = load_data()
+    loas = get_active_loas(data, ctx.guild.id)
+    embed = discord.Embed(title="🌴 Active / Pending LOAs", color=discord.Color.blurple(),
+                          timestamp=datetime.now(timezone.utc))
+    if not loas:
+        embed.description = "There are no pending or active LOAs right now."
+    else:
+        for l in sorted(loas, key=lambda x: x["id"]):
+            status_icon = "⏳" if l["status"] == "pending" else "✅"
+            embed.add_field(
+                name=f"{status_icon} LOA #{l['id']} — {l['user_tag']}",
+                value=f"**Status:** {l['status'].capitalize()}\n**Ends:** <t:{int(datetime.fromisoformat(l['end']).timestamp())}:R>\n**Reason:** {l['reason']}",
+                inline=False)
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="loaapprove")
+@require_cmd_role("loaapprove")
+async def loaapprove_cmd(ctx, loa_id: int = None):
+    if loa_id is None:
+        return await ctx.send(embed=syntax_embed("loaapprove"))
+    data = load_data()
+    rec = get_loa(data, loa_id)
+    if not rec or rec["guild_id"] != ctx.guild.id:
+        return await ctx.send(embed=error_embed(f"LOA #{loa_id} not found."))
+    if rec["status"] != "pending":
+        return await ctx.send(embed=warn_embed(f"LOA #{loa_id} is already **{rec['status']}**."))
+    set_loa_status(data, loa_id, "approved", ctx.author)
+    member = ctx.guild.get_member(rec["user_id"])
+    if member:
+        await dm_member(member, "LOA Approved", ctx.guild.name,
+                        f"Your LOA request has been approved until <t:{int(datetime.fromisoformat(rec['end']).timestamp())}:F>.",
+                        loa_id, moderator=ctx.author)
+    await ctx.send(embed=success_embed(f"LOA **#{loa_id}** for **{rec['user_tag']}** approved."))
+
+
+@bot.command(name="loadeny")
+@require_cmd_role("loadeny")
+async def loadeny_cmd(ctx, loa_id: int = None, *, reason: str = "No reason provided"):
+    if loa_id is None:
+        return await ctx.send(embed=syntax_embed("loadeny"))
+    data = load_data()
+    rec = get_loa(data, loa_id)
+    if not rec or rec["guild_id"] != ctx.guild.id:
+        return await ctx.send(embed=error_embed(f"LOA #{loa_id} not found."))
+    if rec["status"] != "pending":
+        return await ctx.send(embed=warn_embed(f"LOA #{loa_id} is already **{rec['status']}**."))
+    set_loa_status(data, loa_id, "denied", ctx.author)
+    member = ctx.guild.get_member(rec["user_id"])
+    if member:
+        await dm_member(member, "LOA Denied", ctx.guild.name, reason, loa_id, moderator=ctx.author)
+    await ctx.send(embed=success_embed(f"LOA **#{loa_id}** for **{rec['user_tag']}** denied."))
+
+
+@bot.command(name="loaend")
+@require_staff()
+async def loaend_cmd(ctx, member: discord.Member = None):
+    target = member or ctx.author
+    if target.id != ctx.author.id and not is_full_mod(ctx.author):
+        return await ctx.send(embed=error_embed("You can only end your own LOA."))
+    data = load_data()
+    user_loas = [l for l in get_user_loas(data, ctx.guild.id, target.id) if l["status"] == "approved"]
+    if not user_loas:
+        return await ctx.send(embed=error_embed(f"**{target.display_name}** has no active LOA."))
+    latest = sorted(user_loas, key=lambda x: x["id"])[-1]
+    set_loa_status(data, latest["id"], "ended", ctx.author)
+    await ctx.send(embed=success_embed(f"LOA **#{latest['id']}** for **{target}** has been ended."))
+
+
+@bot.tree.command(name="setloachannel", description="[Setup] Choose the channel LOA requests get posted to")
+@app_commands.describe(channel="Channel for LOA requests")
+async def setloachannel_slash(interaction: discord.Interaction, channel: discord.TextChannel):
+    if not is_setup_authorized(interaction.user):
+        return await slash_silent_fail(interaction)
+    set_loa_channel(interaction.guild.id, channel.id)
+    await interaction.response.send_message(embed=success_embed(f"LOA requests will now be posted to {channel.mention}."))
+
+
+loa_group = app_commands.Group(name="loa", description="Leave of Absence management")
+
+
+@loa_group.command(name="request", description="Request a Leave of Absence")
+@app_commands.describe(duration="e.g. 7d, 2w, 12h", reason="Reason for the LOA")
+async def loa_request_slash(interaction: discord.Interaction, duration: str, reason: str):
+    if not is_staff(interaction.user):
+        return await slash_silent_fail(interaction)
+    seconds = parse_duration(duration)
+    if seconds is None:
+        return await interaction.response.send_message(embed=error_embed("Couldn't parse that duration. Example: `7d`."), ephemeral=True)
+    data = load_data()
+    start = datetime.now(timezone.utc)
+    end = start + timedelta(seconds=seconds)
+    lid = create_loa_request(data, interaction.guild.id, interaction.user.id, str(interaction.user), start, end, reason)
+    embed = discord.Embed(title=f"🌴 LOA Request #{lid}", color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
+    embed.add_field(name="Staff Member", value=str(interaction.user), inline=True)
+    embed.add_field(name="Duration", value=fmt_duration(seconds), inline=True)
+    embed.add_field(name="Ends", value=f"<t:{int(end.timestamp())}:R>", inline=True)
+    embed.add_field(name="Reason", value=reason, inline=False)
+    embed.set_footer(text=f"LOA #{lid} — pending approval")
+    channel_id = get_loa_channel_id(interaction.guild.id)
+    channel = interaction.guild.get_channel(channel_id) if channel_id else discord.utils.get(interaction.guild.text_channels, name=MOD_LOG_CHANNEL_NAME)
+    if channel:
+        await channel.send(embed=embed)
+    await interaction.response.send_message(embed=success_embed(f"LOA request **#{lid}** submitted for **{fmt_duration(seconds)}**. Awaiting approval."))
+
+
+@loa_group.command(name="list", description="[Staff Mgmt] List pending and active LOAs")
+@slash_cmd_role("loalist")
+async def loa_list_slash(interaction: discord.Interaction):
+    data = load_data()
+    loas = get_active_loas(data, interaction.guild.id)
+    embed = discord.Embed(title="🌴 Active / Pending LOAs", color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
+    if not loas:
+        embed.description = "There are no pending or active LOAs right now."
+    else:
+        for l in sorted(loas, key=lambda x: x["id"]):
+            status_icon = "⏳" if l["status"] == "pending" else "✅"
+            embed.add_field(
+                name=f"{status_icon} LOA #{l['id']} — {l['user_tag']}",
+                value=f"**Status:** {l['status'].capitalize()}\n**Ends:** <t:{int(datetime.fromisoformat(l['end']).timestamp())}:R>\n**Reason:** {l['reason']}",
+                inline=False)
+    await interaction.response.send_message(embed=embed)
+
+
+@loa_list_slash.error
+async def loa_list_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
+
+@loa_group.command(name="approve", description="[Staff Mgmt] Approve a pending LOA request")
+@app_commands.describe(loa_id="LOA request ID")
+@slash_cmd_role("loaapprove")
+async def loa_approve_slash(interaction: discord.Interaction, loa_id: int):
+    data = load_data()
+    rec = get_loa(data, loa_id)
+    if not rec or rec["guild_id"] != interaction.guild.id:
+        return await interaction.response.send_message(embed=error_embed(f"LOA #{loa_id} not found."), ephemeral=True)
+    if rec["status"] != "pending":
+        return await interaction.response.send_message(embed=warn_embed(f"LOA #{loa_id} is already **{rec['status']}**."), ephemeral=True)
+    set_loa_status(data, loa_id, "approved", interaction.user)
+    member = interaction.guild.get_member(rec["user_id"])
+    if member:
+        await dm_member(member, "LOA Approved", interaction.guild.name,
+                        f"Your LOA request has been approved until <t:{int(datetime.fromisoformat(rec['end']).timestamp())}:F>.",
+                        loa_id, moderator=interaction.user)
+    await interaction.response.send_message(embed=success_embed(f"LOA **#{loa_id}** for **{rec['user_tag']}** approved."))
+
+
+@loa_approve_slash.error
+async def loa_approve_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
+
+@loa_group.command(name="deny", description="[Staff Mgmt] Deny a pending LOA request")
+@app_commands.describe(loa_id="LOA request ID", reason="Reason for denial")
+@slash_cmd_role("loadeny")
+async def loa_deny_slash(interaction: discord.Interaction, loa_id: int, reason: str = "No reason provided"):
+    data = load_data()
+    rec = get_loa(data, loa_id)
+    if not rec or rec["guild_id"] != interaction.guild.id:
+        return await interaction.response.send_message(embed=error_embed(f"LOA #{loa_id} not found."), ephemeral=True)
+    if rec["status"] != "pending":
+        return await interaction.response.send_message(embed=warn_embed(f"LOA #{loa_id} is already **{rec['status']}**."), ephemeral=True)
+    set_loa_status(data, loa_id, "denied", interaction.user)
+    member = interaction.guild.get_member(rec["user_id"])
+    if member:
+        await dm_member(member, "LOA Denied", interaction.guild.name, reason, loa_id, moderator=interaction.user)
+    await interaction.response.send_message(embed=success_embed(f"LOA **#{loa_id}** for **{rec['user_tag']}** denied."))
+
+
+@loa_deny_slash.error
+async def loa_deny_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
+
+@loa_group.command(name="end", description="End your own LOA, or (Staff Mgmt) another member's")
+@app_commands.describe(member="Staff member (optional — defaults to you)")
+async def loa_end_slash(interaction: discord.Interaction, member: discord.Member = None):
+    target = member or interaction.user
+    if target.id != interaction.user.id and not is_full_mod(interaction.user):
+        return await interaction.response.send_message(embed=error_embed("You can only end your own LOA."), ephemeral=True)
+    data = load_data()
+    user_loas = [l for l in get_user_loas(data, interaction.guild.id, target.id) if l["status"] == "approved"]
+    if not user_loas:
+        return await interaction.response.send_message(embed=error_embed(f"**{target.display_name}** has no active LOA."), ephemeral=True)
+    latest = sorted(user_loas, key=lambda x: x["id"])[-1]
+    set_loa_status(data, latest["id"], "ended", interaction.user)
+    await interaction.response.send_message(embed=success_embed(f"LOA **#{latest['id']}** for **{target}** has been ended."))
+
+
+bot.tree.add_command(loa_group)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  STAFF MANAGEMENT — STAFF LIST
+# ══════════════════════════════════════════════════════════════════════════════
+
+def build_staff_list_embed(guild: discord.Guild) -> discord.Embed:
+    staff_roles = [r for r in guild.roles if r.name != "@everyone" and
+                   any(k.lower() in r.name.lower() for k in STAFF_ROLE_KEYWORDS)]
+    staff_roles.sort(key=lambda r: r.position, reverse=True)
+
+    embed = discord.Embed(title=f"🧑‍💼 Staff List — {guild.name}", color=discord.Color.blurple(),
+                          timestamp=datetime.now(timezone.utc))
+
+    if not staff_roles:
+        embed.description = "No staff roles matched the configured keywords."
+        return embed
+
+    seen_ids = set()
+    total = 0
+    for role in staff_roles:
+        members = [m for m in role.members if m.id not in seen_ids]
+        if not members:
+            continue
+        for m in members:
+            seen_ids.add(m.id)
+        total += len(members)
+        value = "\n".join(m.mention for m in members[:25])
+        if len(members) > 25:
+            value += f"\n…and **{len(members) - 25}** more"
+        embed.add_field(name=f"{role.name} ({len(members)})", value=value, inline=False)
+
+    embed.set_footer(text=f"Total staff: {total}")
+    return embed
+
+
+@bot.command(name="stafflist", aliases=["staff"])
+async def stafflist_cmd(ctx):
+    await ctx.send(embed=build_staff_list_embed(ctx.guild))
+
+
+@bot.tree.command(name="stafflist", description="View every staff member, grouped by rank")
+async def stafflist_slash(interaction: discord.Interaction):
+    await interaction.response.send_message(embed=build_staff_list_embed(interaction.guild))
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  MASS ECHO — BROADCAST A MESSAGE TO MANY CHANNELS AT ONCE
+# ══════════════════════════════════════════════════════════════════════════════
+
+MASSECHO_SEND_DELAY = 0.35
+MASSECHO_PROGRESS_EVERY = 3
+MASSECHO_VIEW_TIMEOUT = 120
+
+
+def _massecho_truncate(text: str, limit: int = 500) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "…"
+
+
+def _massecho_channel_list_field(channels) -> str:
+    lines = [c.mention for c in channels]
+    value = ""
+    for i, line in enumerate(lines):
+        candidate = value + (line if not value else "\n" + line)
+        if len(candidate) > 900:
+            remaining = len(lines) - i
+            value += f"\n…and **{remaining}** more"
+            break
+        value = candidate
+    return value or "*(none)*"
+
+
+def massecho_preview_embed(message_text, scope_label, channels, invoker) -> discord.Embed:
+    embed = discord.Embed(title="📣 Mass Echo — Preview",
+                          description="Review the details below, then confirm or cancel.",
+                          color=discord.Color.blurple())
+    embed.add_field(name="Scope", value=scope_label, inline=True)
+    embed.add_field(name="Target Channels", value=str(len(channels)), inline=True)
+    embed.add_field(name="\u200b", value="\u200b", inline=True)
+    embed.add_field(name="Message Preview", value=f"```{_massecho_truncate(message_text)}```", inline=False)
+    embed.add_field(name=f"Channels ({len(channels)})", value=_massecho_channel_list_field(channels), inline=False)
+    embed.set_footer(text=f"Requested by {invoker}  •  Expires in {MASSECHO_VIEW_TIMEOUT}s if untouched")
+    return embed
+
+
+def massecho_progress_embed(scope_label, total, sent, failed) -> discord.Embed:
+    done = sent + failed
+    pct = int((done / total) * 100) if total else 100
+    bar_len = 20
+    filled = int(bar_len * done / total) if total else bar_len
+    bar = "█" * filled + "░" * (bar_len - filled)
+    embed = discord.Embed(title="📣 Mass Echo — Sending…", description=f"`{bar}` {pct}%",
+                          color=discord.Color.orange())
+    embed.add_field(name="Scope", value=scope_label, inline=True)
+    embed.add_field(name="Progress", value=f"{done}/{total}", inline=True)
+    embed.add_field(name="Failed", value=str(failed), inline=True)
+    return embed
+
+
+def massecho_final_embed(scope_label, total, sent, failed, failed_channels, elapsed) -> discord.Embed:
+    color = discord.Color.green() if failed == 0 else (discord.Color.orange() if sent else discord.Color.red())
+    embed = discord.Embed(title="✅ Mass Echo — Complete", color=color)
+    embed.add_field(name="Scope", value=scope_label, inline=True)
+    embed.add_field(name="Sent", value=str(sent), inline=True)
+    embed.add_field(name="Failed", value=str(failed), inline=True)
+    embed.add_field(name="Total Channels", value=str(total), inline=True)
+    embed.add_field(name="Time Taken", value=f"{elapsed:.1f}s", inline=True)
+    embed.add_field(name="\u200b", value="\u200b", inline=True)
+    if failed_channels:
+        shown = failed_channels[:10]
+        value = "\n".join(shown)
+        if len(failed_channels) > 10:
+            value += f"\n…and **{len(failed_channels) - 10}** more"
+        embed.add_field(name="Failed Channels", value=value, inline=False)
+    return embed
+
+
+def _massecho_sendable(channel, me) -> bool:
+    perms = channel.permissions_for(me)
+    return perms.send_messages and perms.view_channel
+
+
+def resolve_massecho_scope(guild: discord.Guild, scope_value: str):
+    me = guild.me
+    if scope_value == "__all__":
+        return [c for c in guild.text_channels if _massecho_sendable(c, me)], "🌐 All Channels"
+    if scope_value == "__uncategorized__":
+        return [c for c in guild.text_channels if c.category is None and _massecho_sendable(c, me)], "📁 Uncategorized Channels"
+    try:
+        category = guild.get_channel(int(scope_value))
+    except (TypeError, ValueError):
+        category = None
+    if not isinstance(category, discord.CategoryChannel):
+        return [], "Unknown Category"
+    return [c for c in category.text_channels if _massecho_sendable(c, me)], f"📂 {category.name}"
+
+
+async def _massecho_run_broadcast(status_message, message_text, channels, scope_label):
+    total = len(channels)
+    sent = 0
+    failed = 0
+    failed_channels = []
+    start = time.monotonic()
+    for i, channel in enumerate(channels, start=1):
+        try:
+            await channel.send(message_text)
+            sent += 1
+        except (discord.Forbidden, discord.HTTPException):
+            failed += 1
+            failed_channels.append(f"#{channel.name}")
+        if i % MASSECHO_PROGRESS_EVERY == 0 or i == total:
+            try:
+                await status_message.edit(embed=massecho_progress_embed(scope_label, total, sent, failed), view=None)
+            except discord.HTTPException:
+                pass
+        if i != total:
+            await asyncio.sleep(MASSECHO_SEND_DELAY)
+    elapsed = time.monotonic() - start
+    try:
+        await status_message.edit(embed=massecho_final_embed(scope_label, total, sent, failed, failed_channels, elapsed), view=None)
+    except discord.HTTPException:
+        pass
+
+
+class MassEchoConfirmView(discord.ui.View):
+    def __init__(self, invoker_id, message_text, channels, scope_label):
+        super().__init__(timeout=MASSECHO_VIEW_TIMEOUT)
+        self.invoker_id = invoker_id
+        self.message_text = message_text
+        self.channels = channels
+        self.scope_label = scope_label
+        self.status_message = None
+        self.done = False
+        if not channels:
+            self.confirm_button.disabled = True
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.invoker_id:
+            await interaction.response.send_message(
+                embed=error_embed("Only the person who ran this command can use these buttons."), ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Confirm & Send", style=discord.ButtonStyle.success, emoji="✅")
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.done:
+            return
+        self.done = True
+        self.stop()
+        await interaction.response.edit_message(
+            embed=massecho_progress_embed(self.scope_label, len(self.channels), 0, 0), view=None)
+        status_message = await interaction.original_response()
+        await _massecho_run_broadcast(status_message, self.message_text, self.channels, self.scope_label)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="🚫")
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.done:
+            return
+        self.done = True
+        self.stop()
+        await interaction.response.edit_message(
+            embed=discord.Embed(color=discord.Color.dark_gray(),
+                                description=f"🚫 Mass echo cancelled by {interaction.user.mention}. Nothing was sent."),
+            view=None)
+
+    async def on_timeout(self):
+        if self.done:
+            return
+        self.done = True
+        if self.status_message:
+            try:
+                await self.status_message.edit(
+                    embed=discord.Embed(color=discord.Color.dark_gray(),
+                                        description="⌛ This mass echo request timed out and was automatically cancelled. Nothing was sent."),
+                    view=None)
+            except discord.HTTPException:
+                pass
+
+
+class MassEchoScopeSelect(discord.ui.Select):
+    def __init__(self, guild: discord.Guild, invoker_id: int, message_text: str):
+        self.invoker_id = invoker_id
+        self.message_text = message_text
+        options = [
+            discord.SelectOption(label="All Channels", value="__all__", emoji="🌐",
+                                 description="Every channel I can send messages in"),
+            discord.SelectOption(label="Uncategorized Channels", value="__uncategorized__", emoji="📁",
+                                 description="Channels that aren't inside any category"),
+        ]
+        for category in guild.categories[:23]:
+            options.append(discord.SelectOption(
+                label=category.name[:100], value=str(category.id), emoji="📂",
+                description=f"Channels inside {category.name}"[:100]))
+        super().__init__(placeholder="Choose which channels to echo to…", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.invoker_id:
+            return await interaction.response.send_message(
+                embed=error_embed("Only the person who ran this command can use this."), ephemeral=True)
+        channels, scope_label = resolve_massecho_scope(interaction.guild, self.values[0])
+        if not channels:
+            return await interaction.response.edit_message(
+                embed=error_embed(f"No sendable channels found for **{scope_label}**."), view=None)
+        preview = massecho_preview_embed(self.message_text, scope_label, channels, interaction.user)
+        confirm_view = MassEchoConfirmView(self.invoker_id, self.message_text, channels, scope_label)
+        await interaction.response.edit_message(embed=preview, view=confirm_view)
+        confirm_view.status_message = await interaction.original_response()
+
+
+class MassEchoScopePickerView(discord.ui.View):
+    def __init__(self, guild: discord.Guild, invoker_id: int, message_text: str):
+        super().__init__(timeout=MASSECHO_VIEW_TIMEOUT)
+        self.add_item(MassEchoScopeSelect(guild, invoker_id, message_text))
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+
+
+@bot.command(name="massecho")
+@require_cmd_role("massecho")
+async def massecho_cmd(ctx, *, message: str = None):
+    if not message:
+        return await ctx.send(embed=syntax_embed("massecho"))
+    view = MassEchoScopePickerView(ctx.guild, ctx.author.id, message)
+    await ctx.send(embed=info_embed("Choose which channels this message should be echoed to:"), view=view)
+
+
+@massecho_cmd.error
+async def massecho_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to use mass echo."))
+
+
+@bot.tree.command(name="massecho", description="[Staff Mgmt] Broadcast a message to many channels at once")
+@app_commands.describe(message="The message to send to every selected channel")
+@slash_cmd_role("massecho")
+async def massecho_slash(interaction: discord.Interaction, message: str):
+    view = MassEchoScopePickerView(interaction.guild, interaction.user.id, message)
+    await interaction.response.send_message(embed=info_embed("Choose which channels this message should be echoed to:"), view=view)
+
+
+@massecho_slash.error
+async def massecho_slash_error(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
 
 if not TOKEN:
 
