@@ -547,6 +547,18 @@ COMMAND_SYNTAX = {
 
     },
 
+    "clearlinks": {
+
+        "usage":   ".clearlinks",
+
+        "example": ".clearlinks",
+
+        "note":    "Deletes every invite link in this server that currently has 0 uses. Also runs automatically on a schedule -- configure that under `.setup perms` -> Invite Link Cleanup.",
+
+        "perms":   "Configurable via .setup perms",
+
+    },
+
     "infraction": {
 
         "usage":   ".infraction @staff <reason>",
@@ -985,6 +997,8 @@ def _default_data() -> dict:
 
         "infraction_requests": {}, "next_infr_req": 1,
 
+        "invite_cleanup": {},
+
     }
 
 def _decrypt_bytes(raw: bytes) -> dict:
@@ -1054,7 +1068,7 @@ def load_data() -> dict:
         data["_load_failed"] = True
         return data
 
-    for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles", "vouches", "scam_vouches", "scam_vouch_cooldowns", "staff_infractions", "promotions", "loa", "loa_channel", "promotion_channel", "demotion_channel", "infraction_channel", "demote_remove_role", "promotion_requests", "demotion_requests", "infraction_requests"):
+    for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles", "vouches", "scam_vouches", "scam_vouch_cooldowns", "staff_infractions", "promotions", "loa", "loa_channel", "promotion_channel", "demotion_channel", "infraction_channel", "demote_remove_role", "promotion_requests", "demotion_requests", "infraction_requests", "invite_cleanup"):
         if key not in data:
             data[key] = {}
     if "next_jreq" not in data:
@@ -4341,7 +4355,7 @@ PERM_CATEGORIES = {
 
         "description": "Custom commands, role management, AFK and setup",
 
-        "commands": ["role", "rappeal", "dwc", "rdwc", "addcmd", "delcmd", "listcmds", "afk", "setup", "ping"],
+        "commands": ["role", "rappeal", "dwc", "rdwc", "addcmd", "delcmd", "listcmds", "afk", "setup", "ping", "clearlinks"],
 
     },
 
@@ -4468,6 +4482,16 @@ PERM_CATEGORIES = {
 
     },
 
+    "🔗  Invite Link Cleanup": {
+
+        "emoji": "🔗",
+
+        "description": "Auto-delete invite links with 0 uses, and how often it runs",
+
+        "commands": [],
+
+    },
+
 }
 
 COMMAND_EMOJIS = {
@@ -4486,7 +4510,7 @@ COMMAND_EMOJIS = {
 
     "giveaway create": "🎉", "giveaway end": "🏁", "giveaway reroll": "🔁", "giveaway delete": "❌", "giveaway list": "📜",
 
-    "ping": "📶",
+    "ping": "📶", "clearlinks": "🔗",
 
     "infraction": "⚠️", "infractions": "📋", "removeinfraction": "🗑️",
 
@@ -4650,6 +4674,16 @@ class CategorySelectDropdown(discord.ui.Select):
         if cat_name == "🗑️  Demotion Role Removed":
 
             view  = DemoteRoleConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
+
+            embed = view.build_embed()
+
+            await interaction.response.edit_message(embed=embed, view=view)
+
+            return
+
+        if cat_name == "🔗  Invite Link Cleanup":
+
+            view  = InviteCleanupConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
 
             embed = view.build_embed()
 
@@ -5979,6 +6013,322 @@ class RoleEditView(discord.ui.View):
         return True
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  INVITE LINK CLEANUP — auto-deletes invite links with 0 uses
+# ══════════════════════════════════════════════════════════════════════════════
+
+INVITE_CLEANUP_DEFAULT_INTERVAL_SECONDS = 3600   # 1 hour
+INVITE_CLEANUP_MIN_INTERVAL_SECONDS     = 300     # floor of 5 minutes
+INVITE_CLEANUP_TICK_SECONDS             = 300     # how often the watcher checks which guilds are due
+INVITE_CLEANUP_DEFAULT_MAX_PER_RUN      = 10      # how many 0-use invites to delete per run, by default
+INVITE_CLEANUP_MAX_PER_RUN_CEILING      = 100     # hard ceiling so it can't be set absurdly high
+
+
+def get_invite_cleanup_config(guild_id: int) -> dict:
+    data = load_data()
+    cfg = data.get("invite_cleanup", {}).get(str(guild_id))
+    if not cfg:
+        return {
+            "enabled": False,
+            "interval_seconds": INVITE_CLEANUP_DEFAULT_INTERVAL_SECONDS,
+            "max_per_run": INVITE_CLEANUP_DEFAULT_MAX_PER_RUN,
+            "total_deleted": 0,
+            "last_run": None,
+            "last_run_deleted": 0,
+        }
+    cfg.setdefault("max_per_run", INVITE_CLEANUP_DEFAULT_MAX_PER_RUN)
+    return cfg
+
+
+def _save_invite_cleanup_config(guild_id: int, cfg: dict):
+    data = load_data()
+    data.setdefault("invite_cleanup", {})[str(guild_id)] = cfg
+    save_data(data)
+
+
+def set_invite_cleanup_enabled(guild_id: int, enabled: bool):
+    cfg = get_invite_cleanup_config(guild_id)
+    cfg["enabled"] = enabled
+    _save_invite_cleanup_config(guild_id, cfg)
+
+
+def set_invite_cleanup_interval(guild_id: int, seconds: int):
+    cfg = get_invite_cleanup_config(guild_id)
+    cfg["interval_seconds"] = max(seconds, INVITE_CLEANUP_MIN_INTERVAL_SECONDS)
+    _save_invite_cleanup_config(guild_id, cfg)
+
+
+def set_invite_cleanup_max_per_run(guild_id: int, amount: int):
+    cfg = get_invite_cleanup_config(guild_id)
+    cfg["max_per_run"] = max(1, min(amount, INVITE_CLEANUP_MAX_PER_RUN_CEILING))
+    _save_invite_cleanup_config(guild_id, cfg)
+
+
+def record_invite_cleanup_run(guild_id: int, deleted_count: int):
+    cfg = get_invite_cleanup_config(guild_id)
+    cfg["total_deleted"]    = cfg.get("total_deleted", 0) + deleted_count
+    cfg["last_run"]         = datetime.now(timezone.utc).isoformat()
+    cfg["last_run_deleted"] = deleted_count
+    _save_invite_cleanup_config(guild_id, cfg)
+
+
+async def run_invite_cleanup(guild: discord.Guild, max_deletions: int = None) -> int:
+    """Deletes invites in the guild that currently have 0 uses, up to max_deletions
+    per run (falls back to the per-guild configured cap if not given). Returns how
+    many were actually deleted."""
+    if not guild.me.guild_permissions.manage_guild:
+        return 0
+    try:
+        invites = await guild.invites()
+    except (discord.Forbidden, discord.HTTPException):
+        return 0
+
+    if max_deletions is None:
+        max_deletions = get_invite_cleanup_config(guild.id).get(
+            "max_per_run", INVITE_CLEANUP_DEFAULT_MAX_PER_RUN)
+
+    deleted = 0
+    for invite in invites:
+        if deleted >= max_deletions:
+            break
+        if invite.uses:
+            continue
+        try:
+            await invite.delete(reason="Auto-cleanup: invite link has 0 uses")
+            deleted += 1
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+            continue
+        await asyncio.sleep(0.4)   # be gentle on the rate limit when deleting several at once
+    return deleted
+
+
+async def _run_and_log_invite_cleanup(guild: discord.Guild, triggered_by: str) -> int:
+    deleted = await run_invite_cleanup(guild)
+    record_invite_cleanup_run(guild.id, deleted)
+    if deleted:
+        channel = discord.utils.get(guild.text_channels, name=AUTO_LOG_CHANNEL_NAME)
+        if channel:
+            embed = discord.Embed(
+                title="🔗 Invite Link Cleanup",
+                description=f"Deleted **{deleted}** invite link(s) with 0 uses.",
+                color=discord.Color.purple(),
+                timestamp=datetime.now(timezone.utc))
+            embed.add_field(name="Triggered by", value=triggered_by, inline=False)
+            await channel.send(embed=embed)
+    return deleted
+
+
+async def invite_cleanup_watcher():
+    await bot.wait_until_ready()
+    while True:
+        try:
+            data = load_data()
+            now  = datetime.now(timezone.utc)
+            for gid_str, cfg in list(data.get("invite_cleanup", {}).items()):
+                if not cfg.get("enabled"):
+                    continue
+                guild = bot.get_guild(int(gid_str))
+                if not guild:
+                    continue
+                interval = timedelta(seconds=max(cfg.get("interval_seconds", INVITE_CLEANUP_DEFAULT_INTERVAL_SECONDS),
+                                                  INVITE_CLEANUP_MIN_INTERVAL_SECONDS))
+                last_run = cfg.get("last_run")
+                due = True
+                if last_run:
+                    due = now - datetime.fromisoformat(last_run) >= interval
+                if due:
+                    await _run_and_log_invite_cleanup(guild, "Automatic (scheduled)")
+        except Exception as e:
+            print(f"Invite cleanup watcher error: {e}")
+        await asyncio.sleep(INVITE_CLEANUP_TICK_SECONDS)
+
+
+class InviteCleanupIntervalModal(discord.ui.Modal, title="Set Invite Cleanup Interval"):
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+        super().__init__()
+        self.guild           = guild
+        self.guild_cmd_roles = guild_cmd_roles
+        self.invoker_id      = invoker_id
+        self.interval_input = discord.ui.TextInput(
+            label="How often to run (e.g. 30m, 1h, 6h)",
+            placeholder="1h",
+            required=True, max_length=20,
+        )
+        self.add_item(self.interval_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        secs = parse_duration(str(self.interval_input.value))
+        if secs is None:
+            return await interaction.response.send_message(
+                embed=error_embed("Couldn't parse that. Try something like `30m`, `1h`, or `6h`."), ephemeral=True)
+        if secs < INVITE_CLEANUP_MIN_INTERVAL_SECONDS:
+            return await interaction.response.send_message(
+                embed=error_embed(f"The minimum interval is **{fmt_duration(INVITE_CLEANUP_MIN_INTERVAL_SECONDS)}**, to avoid hammering Discord's API."),
+                ephemeral=True)
+        set_invite_cleanup_interval(self.guild.id, secs)
+        view  = InviteCleanupConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+        embed = view.build_embed()
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class InviteCleanupMaxPerRunModal(discord.ui.Modal, title="Set Max Links Per Run"):
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+        super().__init__()
+        self.guild           = guild
+        self.guild_cmd_roles = guild_cmd_roles
+        self.invoker_id      = invoker_id
+        self.amount_input = discord.ui.TextInput(
+            label=f"Max 0-use links deleted per run (1-{INVITE_CLEANUP_MAX_PER_RUN_CEILING})",
+            placeholder="10",
+            required=True, max_length=3,
+        )
+        self.add_item(self.amount_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        raw = str(self.amount_input.value).strip()
+        if not raw.isdigit():
+            return await interaction.response.send_message(
+                embed=error_embed("Please enter a whole number."), ephemeral=True)
+        amount = int(raw)
+        if amount < 1 or amount > INVITE_CLEANUP_MAX_PER_RUN_CEILING:
+            return await interaction.response.send_message(
+                embed=error_embed(f"Enter a number between 1 and {INVITE_CLEANUP_MAX_PER_RUN_CEILING}."), ephemeral=True)
+        set_invite_cleanup_max_per_run(self.guild.id, amount)
+        view  = InviteCleanupConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+        embed = view.build_embed()
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class InviteCleanupToggleButton(discord.ui.Button):
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+        cfg = get_invite_cleanup_config(guild.id)
+        enabled = cfg.get("enabled", False)
+        super().__init__(
+            label="Disable" if enabled else "Enable",
+            style=discord.ButtonStyle.danger if enabled else discord.ButtonStyle.success,
+            emoji="⏸️" if enabled else "▶️",
+        )
+        self.guild           = guild
+        self.guild_cmd_roles = guild_cmd_roles
+        self.invoker_id      = invoker_id
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.invoker_id:
+            return await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+        cfg = get_invite_cleanup_config(self.guild.id)
+        set_invite_cleanup_enabled(self.guild.id, not cfg.get("enabled", False))
+        view  = InviteCleanupConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+        embed = view.build_embed()
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class InviteCleanupIntervalButton(discord.ui.Button):
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+        super().__init__(label="Set Interval", style=discord.ButtonStyle.secondary, emoji="⏱️")
+        self.guild           = guild
+        self.guild_cmd_roles = guild_cmd_roles
+        self.invoker_id      = invoker_id
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.invoker_id:
+            return await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+        await interaction.response.send_modal(
+            InviteCleanupIntervalModal(self.guild, self.guild_cmd_roles, self.invoker_id))
+
+
+class InviteCleanupMaxPerRunButton(discord.ui.Button):
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+        super().__init__(label="Set Max Per Run", style=discord.ButtonStyle.secondary, emoji="🔢")
+        self.guild           = guild
+        self.guild_cmd_roles = guild_cmd_roles
+        self.invoker_id      = invoker_id
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.invoker_id:
+            return await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+        await interaction.response.send_modal(
+            InviteCleanupMaxPerRunModal(self.guild, self.guild_cmd_roles, self.invoker_id))
+
+
+class InviteCleanupRunNowButton(discord.ui.Button):
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+        super().__init__(label="Run Now", style=discord.ButtonStyle.primary, emoji="🧹")
+        self.guild           = guild
+        self.guild_cmd_roles = guild_cmd_roles
+        self.invoker_id      = invoker_id
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.invoker_id:
+            return await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+        await interaction.response.defer()
+        deleted = await _run_and_log_invite_cleanup(
+            self.guild, f"Manual (via `.setup perms`, run by {interaction.user})")
+        view  = InviteCleanupConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+        embed = view.build_embed(just_ran=deleted)
+        await interaction.edit_original_response(embed=embed, view=view)
+
+
+class InviteCleanupConfigView(discord.ui.View):
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+        super().__init__(timeout=300)
+        self.guild           = guild
+        self.guild_cmd_roles = guild_cmd_roles
+        self.invoker_id      = invoker_id
+        self.add_item(InviteCleanupToggleButton(guild, guild_cmd_roles, invoker_id))
+        self.add_item(InviteCleanupIntervalButton(guild, guild_cmd_roles, invoker_id))
+        self.add_item(InviteCleanupMaxPerRunButton(guild, guild_cmd_roles, invoker_id))
+        self.add_item(InviteCleanupRunNowButton(guild, guild_cmd_roles, invoker_id))
+        self.add_item(BackToCategoryButton(guild_cmd_roles, invoker_id))
+
+    def build_embed(self, just_ran: int = None) -> discord.Embed:
+        cfg         = get_invite_cleanup_config(self.guild.id)
+        enabled     = cfg.get("enabled", False)
+        interval    = cfg.get("interval_seconds", INVITE_CLEANUP_DEFAULT_INTERVAL_SECONDS)
+        max_per_run = cfg.get("max_per_run", INVITE_CLEANUP_DEFAULT_MAX_PER_RUN)
+        total       = cfg.get("total_deleted", 0)
+        last_run    = cfg.get("last_run")
+        last_del    = cfg.get("last_run_deleted", 0)
+
+        embed = discord.Embed(
+            title="🔗  Invite Link Cleanup",
+            description=(
+                "Automatically deletes custom invite links that have **0 uses**.\n\n"
+                "• **Enable / Disable** — turn automatic cleanup on or off\n"
+                "• **Set Interval** — how often it runs automatically (e.g. `30m`, `1h`, `6h`)\n"
+                "• **Set Max Per Run** — caps how many 0-use links get deleted in a single run\n"
+                "• **Run Now** — manually trigger a cleanup immediately from here (same cap applies)\n"
+                "• `.clearlinks` / `/clearlinks` also run it manually any time\n"
+                "• Who can use `.clearlinks` is configured under **🛠️ Misc / Utility** in this menu"
+            ),
+            color=discord.Color.blurple(),
+            timestamp=datetime.now(timezone.utc),
+        )
+        embed.add_field(name="Status",      value="🟢 Enabled" if enabled else "🔴 Disabled", inline=True)
+        embed.add_field(name="Interval",    value=fmt_duration(interval), inline=True)
+        embed.add_field(name="Max Per Run", value=f"{max_per_run} link(s)", inline=True)
+        embed.add_field(name="Total Links Deleted (all-time)", value=str(total), inline=True)
+        if last_run:
+            last_ts = int(datetime.fromisoformat(last_run).timestamp())
+            embed.add_field(name="Last Run", value=f"<t:{last_ts}:R> • deleted **{last_del}**", inline=True)
+        else:
+            embed.add_field(name="Last Run", value="*Never run yet*", inline=True)
+        if just_ran is not None:
+            embed.add_field(name="✅ Just Ran", value=f"Deleted **{just_ran}** invite link(s) with 0 uses.", inline=False)
+        embed.set_footer(text="Admins and the bot owner can always use any command.")
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.invoker_id:
+            await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+            return False
+        return True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 
 #  BOT EVENTS
 
@@ -6037,6 +6387,8 @@ async def on_ready():
                 bot.add_view(view, message_id=int(mid_str))
 
     asyncio.create_task(giveaway_watcher())
+
+    asyncio.create_task(invite_cleanup_watcher())
 
 @bot.event
 
@@ -10583,6 +10935,44 @@ async def ping_slash(interaction: discord.Interaction):
 async def ping_slash_err(interaction, error):
 
     if isinstance(error, app_commands.CheckFailure): await slash_silent_fail(interaction)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CLEARLINKS — manually run the invite-link cleanup
+# ══════════════════════════════════════════════════════════════════════════════
+
+@bot.command(name="clearlinks")
+@require_cmd_role("clearlinks")
+async def clearlinks_cmd(ctx):
+    if not ctx.guild.me.guild_permissions.manage_guild:
+        return await ctx.send(embed=error_embed("I need the **Manage Server** permission to view and delete invites."))
+    msg = await ctx.send(embed=info_embed("🔗 Scanning invite links with 0 uses…"))
+    deleted = await _run_and_log_invite_cleanup(ctx.guild, f"Manual (`.clearlinks` by {ctx.author})")
+    await msg.edit(embed=success_embed(f"Deleted **{deleted}** invite link(s) with 0 uses."))
+
+
+@clearlinks_cmd.error
+async def clearlinks_cmd_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to use `.clearlinks`."))
+
+
+@bot.tree.command(name="clearlinks", description="[Mod] Delete invite links with 0 uses right now")
+@slash_cmd_role("clearlinks")
+async def clearlinks_slash(interaction: discord.Interaction):
+    if not interaction.guild.me.guild_permissions.manage_guild:
+        return await interaction.response.send_message(
+            embed=error_embed("I need the **Manage Server** permission to view and delete invites."), ephemeral=True)
+    await interaction.response.defer()
+    deleted = await _run_and_log_invite_cleanup(interaction.guild, f"Manual (`/clearlinks` by {interaction.user})")
+    await interaction.followup.send(embed=success_embed(f"Deleted **{deleted}** invite link(s) with 0 uses."))
+
+
+@clearlinks_slash.error
+async def clearlinks_slash_err(interaction, error):
+    if isinstance(error, app_commands.CheckFailure):
+        await slash_silent_fail(interaction)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 
