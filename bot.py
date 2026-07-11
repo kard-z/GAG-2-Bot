@@ -101,7 +101,7 @@ def _spawn_background(coro):
 
     return t
 
-BOT_OWNER_ID         = 1516072585799139429
+BOT_OWNER_ID         = 1455245036860997840
 
 AUTOMOD_ENABLED   = False
 
@@ -985,7 +985,7 @@ def _default_data() -> dict:
 
         "appeal_roles": {}, "dwc_roles": {}, "vouches": {}, "scam_vouches": {},
         "next_scam_vouch": 1, "scam_vouch_cooldowns": {},
-        "staff_infractions": {}, "promotions": {}, "loa": {}, "next_loa": 1, "loa_channel": {},
+        "staff_infractions": {}, "promotions": {}, "loa": {}, "next_loa": 1, "loa_channel": {}, "loa_roles": {},
 
         "promotion_channel": {}, "demotion_channel": {}, "infraction_channel": {},
 
@@ -1068,7 +1068,7 @@ def load_data() -> dict:
         data["_load_failed"] = True
         return data
 
-    for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles", "vouches", "scam_vouches", "scam_vouch_cooldowns", "staff_infractions", "promotions", "loa", "loa_channel", "promotion_channel", "demotion_channel", "infraction_channel", "demote_remove_role", "promotion_requests", "demotion_requests", "infraction_requests", "invite_cleanup"):
+    for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles", "vouches", "scam_vouches", "scam_vouch_cooldowns", "staff_infractions", "promotions", "loa", "loa_channel", "loa_roles", "promotion_channel", "demotion_channel", "infraction_channel", "demote_remove_role", "promotion_requests", "demotion_requests", "infraction_requests", "invite_cleanup"):
         if key not in data:
             data[key] = {}
     if "next_jreq" not in data:
@@ -1179,6 +1179,30 @@ def set_dwc_role_id(guild_id: int, role_id: int | None):
     else:
 
         data["dwc_roles"][str(guild_id)] = role_id
+
+    save_data(data)
+
+def get_loa_role_id(guild_id: int) -> int | None:
+
+    data = load_data()
+
+    role_id = data.get("loa_roles", {}).get(str(guild_id))
+
+    return int(role_id) if role_id else None
+
+def set_loa_role_id(guild_id: int, role_id: int | None):
+
+    data = load_data()
+
+    data.setdefault("loa_roles", {})
+
+    if role_id is None:
+
+        data["loa_roles"].pop(str(guild_id), None)
+
+    else:
+
+        data["loa_roles"][str(guild_id)] = role_id
 
     save_data(data)
 
@@ -2628,6 +2652,10 @@ def is_setup_authorized(m):
 
     return any(discord.utils.get(m.roles, name=r) is not None for r in allowed)
 
+def is_bot_or_server_owner(m):
+
+    return m.id == BOT_OWNER_ID or m.id == m.guild.owner_id
+
 def hierarchy_ok(actor, target):
 
     if is_admin(actor): return True
@@ -2654,11 +2682,23 @@ def require_any_mod():
 
     return commands.check(pred)
 
-def require_staff():
+def require_staff(cmd_name: str = None):
 
     async def pred(ctx):
 
-        if not is_staff(ctx.author): raise commands.CheckFailure()
+        m = ctx.author
+
+        if m.id == BOT_OWNER_ID or is_admin(m):
+            return True
+
+        if cmd_name:
+            allowed = get_cmd_roles(ctx.guild.id).get(cmd_name, [])
+            if allowed:
+                if any(discord.utils.get(m.roles, name=r) is not None for r in allowed):
+                    return True
+                raise commands.CheckFailure()
+
+        if not is_staff(m): raise commands.CheckFailure()
 
         return True
 
@@ -4325,6 +4365,16 @@ async def do_mute(guild, moderator, member, reason: str, duration_seconds: int):
 
 PERM_CATEGORIES = {
 
+    "🔑  Setup Access": {
+
+        "emoji": "🔑",
+
+        "description": "Who can use .setup perms — bot owner / server owner only",
+
+        "commands": [],
+
+    },
+
     "⚔️  Moderation": {
 
         "emoji": "⚔️",
@@ -4355,7 +4405,7 @@ PERM_CATEGORIES = {
 
         "description": "Custom commands, role management, AFK and setup",
 
-        "commands": ["role", "rappeal", "dwc", "rdwc", "addcmd", "delcmd", "listcmds", "afk", "setup", "ping", "clearlinks"],
+        "commands": ["role", "rappeal", "dwc", "rdwc", "addcmd", "delcmd", "listcmds", "afk", "ping", "clearlinks"],
 
     },
 
@@ -4427,6 +4477,16 @@ PERM_CATEGORIES = {
         "emoji": "🌴",
 
         "description": "Where .loa / /loa request requests get posted for review",
+
+        "commands": [],
+
+    },
+
+    "🌴  LOA Role": {
+
+        "emoji": "🌴",
+
+        "description": "Role given to a staff member while their LOA is approved",
 
         "commands": [],
 
@@ -4592,6 +4652,21 @@ class CategorySelectDropdown(discord.ui.Select):
 
         cat_name = self.values[0]
 
+        if cat_name == "🔑  Setup Access":
+
+            if not is_bot_or_server_owner(interaction.user):
+                return await interaction.response.send_message(
+                    embed=error_embed("Only the bot owner or the server owner can change who has access to `.setup perms`."),
+                    ephemeral=True)
+
+            view  = SetupAccessConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
+
+            embed = view.build_embed()
+
+            await interaction.response.edit_message(embed=embed, view=view)
+
+            return
+
         if cat_name == "🚫  Channel Whitelist":
 
             view  = ChannelWhitelistView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
@@ -4634,6 +4709,16 @@ class CategorySelectDropdown(discord.ui.Select):
         if cat_name == "🌴  LOA Channel":
 
             view  = LOAChannelConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
+
+            embed = view.build_embed()
+
+            await interaction.response.edit_message(embed=embed, view=view)
+
+            return
+
+        if cat_name == "🌴  LOA Role":
+
+            view  = LOARoleConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
 
             embed = view.build_embed()
 
@@ -5181,6 +5266,249 @@ class DWCRoleConfigView(discord.ui.View):
         if updated_to:
 
             embed.add_field(name="✅ Updated", value=f"DWC role is now {updated_to.mention}.", inline=False)
+
+        elif role:
+
+            embed.add_field(name="Current Role", value=role.mention, inline=False)
+
+        else:
+
+            embed.add_field(name="Current Role", value="*Not set yet*", inline=False)
+
+        embed.set_footer(text="Admins and the bot owner can always use any command.")
+
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+
+        if interaction.user.id != self.invoker_id:
+
+            await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+
+            return False
+
+        return True
+
+class SetupAccessConfigSelect(discord.ui.RoleSelect):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        super().__init__(
+
+            placeholder="Select roles that can use .setup perms (none = owners only)...",
+
+            min_values=0, max_values=10,
+
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+
+        if not is_bot_or_server_owner(interaction.user):
+
+            return await interaction.response.send_message(
+
+                embed=error_embed("Only the bot owner or the server owner can change this."), ephemeral=True)
+
+        selected_role_names            = [r.name for r in self.values]
+
+        self.guild_cmd_roles["setup"]  = selected_role_names
+
+        save_guild_cmd_roles(self.guild.id, self.guild_cmd_roles)
+
+        view  = SetupAccessConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+
+        embed = view.build_embed(updated=True)
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class SetupAccessClearButton(discord.ui.Button):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        super().__init__(label="Clear (owners only)", style=discord.ButtonStyle.danger, emoji="🔓")
+
+        self.guild            = guild
+
+        self.guild_cmd_roles  = guild_cmd_roles
+
+        self.invoker_id       = invoker_id
+
+    async def callback(self, interaction: discord.Interaction):
+
+        if not is_bot_or_server_owner(interaction.user):
+
+            return await interaction.response.send_message(
+
+                embed=error_embed("Only the bot owner or the server owner can change this."), ephemeral=True)
+
+        self.guild_cmd_roles["setup"] = []
+
+        save_guild_cmd_roles(self.guild.id, self.guild_cmd_roles)
+
+        view  = SetupAccessConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+
+        embed = view.build_embed(updated=True)
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class SetupAccessConfigView(discord.ui.View):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        super().__init__(timeout=300)
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        self.add_item(SetupAccessConfigSelect(guild, guild_cmd_roles, invoker_id))
+
+        self.add_item(SetupAccessClearButton(guild, guild_cmd_roles, invoker_id))
+
+        self.add_item(BackToCategoryButton(guild_cmd_roles, invoker_id))
+
+    def build_embed(self, updated: bool = False) -> discord.Embed:
+
+        current       = self.guild_cmd_roles.get("setup", [])
+
+        role_display  = (
+
+            "\n".join(f"• `{r}`" for r in current)
+
+            if current else "*No extra roles set — only the bot owner, server owner, and Admins can use it*"
+
+        )
+
+        embed = discord.Embed(
+
+            title="🔑  Setup Access",
+
+            description=(
+
+                "Controls who can run `.setup perms` (and `.setup` in general) on this server.\n\n"
+
+                "**The bot owner, server owner, and members with Administrator always can use it**, no matter what's set here. "
+                "Use the dropdown below to additionally grant access to specific roles.\n\n"
+
+                "**Only the bot owner or server owner can change this setting.**"
+
+            ),
+
+            color=discord.Color.green() if updated else discord.Color.blurple(),
+
+            timestamp=datetime.now(timezone.utc),
+
+        )
+
+        if updated:
+
+            embed.add_field(name="✅ Updated", value="Setup access roles have been saved.", inline=False)
+
+        embed.add_field(name="Currently Allowed Roles", value=role_display, inline=False)
+
+        embed.set_footer(text="Bot owner, server owner, and server Admins always have access — this just grants it to extra roles.")
+
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+
+        if interaction.user.id != self.invoker_id:
+
+            await interaction.response.send_message(
+                embed=error_embed("Only the original user can use this."), ephemeral=True)
+
+            return False
+
+        return True
+
+class LOARoleConfigSelect(discord.ui.RoleSelect):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        super().__init__(
+
+            placeholder="Choose the role given while on LOA...",
+
+            min_values=1, max_values=1,
+
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+
+        role = self.values[0]
+
+        set_loa_role_id(self.guild.id, role.id)
+
+        view  = LOARoleConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
+
+        embed = view.build_embed(updated_to=role)
+
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class LOARoleConfigView(discord.ui.View):
+
+    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
+
+        super().__init__(timeout=300)
+
+        self.guild           = guild
+
+        self.guild_cmd_roles = guild_cmd_roles
+
+        self.invoker_id      = invoker_id
+
+        self.add_item(LOARoleConfigSelect(guild, guild_cmd_roles, invoker_id))
+
+        self.add_item(BackToCategoryButton(guild_cmd_roles, invoker_id))
+
+    def build_embed(self, updated_to: discord.Role = None) -> discord.Embed:
+
+        data = load_data()
+
+        role_id = data.get("loa_roles", {}).get(str(self.guild.id))
+
+        role = self.guild.get_role(role_id) if role_id else None
+
+        embed = discord.Embed(
+
+            title="🌴  LOA Role",
+
+            description=(
+
+                "Choose the role the bot should give a staff member once their "
+                "`.loa` / `/loa request` is approved, and remove once it ends.\n\n"
+
+                "**Select a role below to set or change it.**"
+
+            ),
+
+            color=discord.Color.blurple(),
+
+            timestamp=datetime.now(timezone.utc),
+
+        )
+
+        if updated_to:
+
+            embed.add_field(name="✅ Updated", value=f"LOA role is now {updated_to.mention}.", inline=False)
 
         elif role:
 
@@ -7152,6 +7480,70 @@ async def remove_dwc_role(member: discord.Member, reason: str):
     except discord.Forbidden:
 
         return False, "I don't have permission to manage the configured DWC role."
+
+
+async def apply_loa_role(member: discord.Member, reason: str):
+
+    role_id = get_loa_role_id(member.guild.id)
+
+    if not role_id:
+
+        return False, "No LOA role has been configured yet. Use `.setup perms` → **LOA Role** to set one."
+
+    role = member.guild.get_role(role_id)
+
+    if role is None:
+
+        return False, "The configured LOA role no longer exists."
+
+    if role >= member.guild.me.top_role:
+
+        return False, "I can't manage the configured LOA role because it is above my highest role."
+
+    try:
+
+        if role not in member.roles:
+
+            await member.add_roles(role, reason=reason)
+
+        return True, role
+
+    except discord.Forbidden:
+
+        return False, "I don't have permission to manage the configured LOA role."
+
+
+async def remove_loa_role(member: discord.Member, reason: str):
+
+    role_id = get_loa_role_id(member.guild.id)
+
+    if not role_id:
+
+        return False, "No LOA role has been configured."
+
+    role = member.guild.get_role(role_id)
+
+    if role is None:
+
+        return False, "The configured LOA role no longer exists."
+
+    if role >= member.guild.me.top_role:
+
+        return False, "I can't manage the configured LOA role because it is above my highest role."
+
+    if role not in member.roles:
+
+        return False, f"{member.mention} doesn't have the configured LOA role."
+
+    try:
+
+        await member.remove_roles(role, reason=reason)
+
+        return True, role
+
+    except discord.Forbidden:
+
+        return False, "I don't have permission to manage the configured LOA role."
 
 
 @bot.command(name="rappeal")
@@ -12145,8 +12537,110 @@ async def rankhistory_slash_err(interaction, error):
 #  STAFF MANAGEMENT — LOA (LEAVE OF ABSENCE) SYSTEM
 # ══════════════════════════════════════════════════════════════════════════════
 
+def build_loa_request_embed(rec: dict, status: str = None) -> discord.Embed:
+    lid    = rec["id"]
+    status = status or rec["status"]
+    start  = datetime.fromisoformat(rec["start"])
+    end    = datetime.fromisoformat(rec["end"])
+    duration_seconds = max(int((end - start).total_seconds()), 0)
+
+    icon  = {"pending": "🌴", "approved": "✅", "denied": "❌", "ended": "🔚"}.get(status, "🌴")
+    color = {"pending": discord.Color.blurple(), "approved": discord.Color.green(),
+             "denied": discord.Color.red(), "ended": discord.Color.dark_gray()}.get(status, discord.Color.blurple())
+
+    embed = discord.Embed(title=f"{icon} LOA Request #{lid} — {status.title()}", color=color,
+                          timestamp=datetime.now(timezone.utc))
+    embed.add_field(name="Staff Member", value=rec["user_tag"], inline=True)
+    embed.add_field(name="Duration", value=fmt_duration(duration_seconds), inline=True)
+    embed.add_field(name="Ends", value=f"<t:{int(end.timestamp())}:R>", inline=True)
+    embed.add_field(name="Reason", value=rec["reason"], inline=False)
+
+    if status == "pending":
+        embed.set_footer(text=f"LOA #{lid} — pending approval  •  Use the buttons below or .loaapprove/.loadeny {lid}")
+    else:
+        embed.set_footer(text=f"LOA #{lid} — {status}")
+    return embed
+
+
+class LOARequestActionView(discord.ui.View):
+
+    def __init__(self, lid: int, guild_id: int):
+        super().__init__(timeout=None)
+        self.lid       = lid
+        self.guild_id  = guild_id
+        self._actioned = False
+
+    def _disable_all(self):
+        for child in self.children:
+            child.disabled = True
+
+    @discord.ui.button(label="Approve", style=discord.ButtonStyle.success, emoji="✅", custom_id="loa_approve_btn")
+    async def approve_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not member_has_cmd_perm(interaction.user, "loaapprove"):
+            return await interaction.response.send_message(
+                embed=error_embed("You don't have permission to approve LOA requests."), ephemeral=True)
+        if self._actioned:
+            return await interaction.response.send_message(
+                embed=warn_embed("This LOA request has already been actioned."), ephemeral=True)
+
+        data = load_data()
+        rec  = get_loa(data, self.lid)
+        if not rec or rec["guild_id"] != self.guild_id:
+            return await interaction.response.send_message(embed=error_embed(f"LOA #{self.lid} not found."), ephemeral=True)
+        if rec["status"] != "pending":
+            return await interaction.response.send_message(
+                embed=warn_embed(f"LOA #{self.lid} is already **{rec['status']}**."), ephemeral=True)
+
+        set_loa_status(data, self.lid, "approved", interaction.user)
+        rec = get_loa(data, self.lid)
+
+        self._actioned = True
+        self._disable_all()
+        embed = build_loa_request_embed(rec, status="approved")
+        embed.add_field(name="✅ Approved by", value=interaction.user.mention, inline=False)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+        member = interaction.guild.get_member(rec["user_id"])
+        if member:
+            await apply_loa_role(member, f"LOA #{self.lid} approved by {interaction.user}")
+            await dm_member(member, "LOA Approved", interaction.guild.name,
+                            f"Your LOA request has been approved until <t:{int(datetime.fromisoformat(rec['end']).timestamp())}:F>.",
+                            self.lid, moderator=interaction.user)
+
+    @discord.ui.button(label="Deny", style=discord.ButtonStyle.danger, emoji="❌", custom_id="loa_deny_btn")
+    async def deny_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not member_has_cmd_perm(interaction.user, "loadeny"):
+            return await interaction.response.send_message(
+                embed=error_embed("You don't have permission to deny LOA requests."), ephemeral=True)
+        if self._actioned:
+            return await interaction.response.send_message(
+                embed=warn_embed("This LOA request has already been actioned."), ephemeral=True)
+
+        data = load_data()
+        rec  = get_loa(data, self.lid)
+        if not rec or rec["guild_id"] != self.guild_id:
+            return await interaction.response.send_message(embed=error_embed(f"LOA #{self.lid} not found."), ephemeral=True)
+        if rec["status"] != "pending":
+            return await interaction.response.send_message(
+                embed=warn_embed(f"LOA #{self.lid} is already **{rec['status']}**."), ephemeral=True)
+
+        set_loa_status(data, self.lid, "denied", interaction.user)
+        rec = get_loa(data, self.lid)
+
+        self._actioned = True
+        self._disable_all()
+        embed = build_loa_request_embed(rec, status="denied")
+        embed.add_field(name="❌ Denied by", value=interaction.user.mention, inline=False)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+        member = interaction.guild.get_member(rec["user_id"])
+        if member:
+            await dm_member(member, "LOA Denied", interaction.guild.name, "No reason provided",
+                            self.lid, moderator=interaction.user)
+
+
 @bot.command(name="loa")
-@require_staff()
+@require_staff("loa")
 async def loa_cmd(ctx, *, args: str = None):
     if not args:
         return await ctx.send(embed=syntax_embed("loa"))
@@ -12159,17 +12653,13 @@ async def loa_cmd(ctx, *, args: str = None):
     start = datetime.now(timezone.utc)
     end = start + timedelta(seconds=duration)
     lid = create_loa_request(data, ctx.guild.id, ctx.author.id, str(ctx.author), start, end, reason)
-    embed = discord.Embed(title=f"🌴 LOA Request #{lid}", color=discord.Color.blurple(),
-                          timestamp=datetime.now(timezone.utc))
-    embed.add_field(name="Staff Member", value=str(ctx.author), inline=True)
-    embed.add_field(name="Duration", value=fmt_duration(duration), inline=True)
-    embed.add_field(name="Ends", value=f"<t:{int(end.timestamp())}:R>", inline=True)
-    embed.add_field(name="Reason", value=reason, inline=False)
-    embed.set_footer(text=f"LOA #{lid} — pending approval  •  Use .loaapprove {lid} or .loadeny {lid}")
+    rec = get_loa(load_data(), lid)
+    embed = build_loa_request_embed(rec)
+    view  = LOARequestActionView(lid, ctx.guild.id)
     channel_id = get_loa_channel_id(ctx.guild.id)
     channel = ctx.guild.get_channel(channel_id) if channel_id else discord.utils.get(ctx.guild.text_channels, name=MOD_LOG_CHANNEL_NAME)
     if channel:
-        await channel.send(embed=embed)
+        await channel.send(embed=embed, view=view)
     await ctx.send(embed=success_embed(f"LOA request **#{lid}** submitted for **{fmt_duration(duration)}**. Awaiting approval."))
 
 
@@ -12212,6 +12702,7 @@ async def loaapprove_cmd(ctx, loa_id: int = None):
     set_loa_status(data, loa_id, "approved", ctx.author)
     member = ctx.guild.get_member(rec["user_id"])
     if member:
+        await apply_loa_role(member, f"LOA #{loa_id} approved by {ctx.author}")
         await dm_member(member, "LOA Approved", ctx.guild.name,
                         f"Your LOA request has been approved until <t:{int(datetime.fromisoformat(rec['end']).timestamp())}:F>.",
                         loa_id, moderator=ctx.author)
@@ -12248,6 +12739,7 @@ async def loaend_cmd(ctx, member: discord.Member = None):
         return await ctx.send(embed=error_embed(f"**{target.display_name}** has no active LOA."))
     latest = sorted(user_loas, key=lambda x: x["id"])[-1]
     set_loa_status(data, latest["id"], "ended", ctx.author)
+    await remove_loa_role(target, f"LOA #{latest['id']} ended by {ctx.author}")
     await ctx.send(embed=success_embed(f"LOA **#{latest['id']}** for **{target}** has been ended."))
 
 
@@ -12266,31 +12758,36 @@ loa_group = app_commands.Group(name="loa", description="Leave of Absence managem
 @loa_group.command(name="request", description="Request a Leave of Absence")
 @app_commands.describe(duration="e.g. 7d, 2w, 12h", reason="Reason for the LOA")
 async def loa_request_slash(interaction: discord.Interaction, duration: str, reason: str):
-    if not is_staff(interaction.user):
-        return await slash_silent_fail(interaction)
+    m = interaction.user
+    if not (m.id == BOT_OWNER_ID or is_admin(m)):
+        allowed = get_cmd_roles(interaction.guild.id).get("loa", [])
+        if allowed:
+            if not any(discord.utils.get(m.roles, name=r) is not None for r in allowed):
+                return await slash_silent_fail(interaction)
+        elif not is_staff(m):
+            return await slash_silent_fail(interaction)
     seconds = parse_duration(duration)
     if seconds is None:
         return await interaction.response.send_message(embed=error_embed("Couldn't parse that duration. Example: `7d`."), ephemeral=True)
+    await interaction.response.defer()
     data = load_data()
     start = datetime.now(timezone.utc)
     end = start + timedelta(seconds=seconds)
     lid = create_loa_request(data, interaction.guild.id, interaction.user.id, str(interaction.user), start, end, reason)
-    embed = discord.Embed(title=f"🌴 LOA Request #{lid}", color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
-    embed.add_field(name="Staff Member", value=str(interaction.user), inline=True)
-    embed.add_field(name="Duration", value=fmt_duration(seconds), inline=True)
-    embed.add_field(name="Ends", value=f"<t:{int(end.timestamp())}:R>", inline=True)
-    embed.add_field(name="Reason", value=reason, inline=False)
-    embed.set_footer(text=f"LOA #{lid} — pending approval")
+    rec = get_loa(load_data(), lid)
+    embed = build_loa_request_embed(rec)
+    view  = LOARequestActionView(lid, interaction.guild.id)
     channel_id = get_loa_channel_id(interaction.guild.id)
     channel = interaction.guild.get_channel(channel_id) if channel_id else discord.utils.get(interaction.guild.text_channels, name=MOD_LOG_CHANNEL_NAME)
     if channel:
-        await channel.send(embed=embed)
-    await interaction.response.send_message(embed=success_embed(f"LOA request **#{lid}** submitted for **{fmt_duration(seconds)}**. Awaiting approval."))
+        await channel.send(embed=embed, view=view)
+    await interaction.followup.send(embed=success_embed(f"LOA request **#{lid}** submitted for **{fmt_duration(seconds)}**. Awaiting approval."))
 
 
 @loa_group.command(name="list", description="[Staff Mgmt] List pending and active LOAs")
 @slash_cmd_role("loalist")
 async def loa_list_slash(interaction: discord.Interaction):
+    await interaction.response.defer()
     data = load_data()
     loas = get_active_loas(data, interaction.guild.id)
     embed = discord.Embed(title="🌴 Active / Pending LOAs", color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
@@ -12303,7 +12800,7 @@ async def loa_list_slash(interaction: discord.Interaction):
                 name=f"{status_icon} LOA #{l['id']} — {l['user_tag']}",
                 value=f"**Status:** {l['status'].capitalize()}\n**Ends:** <t:{int(datetime.fromisoformat(l['end']).timestamp())}:R>\n**Reason:** {l['reason']}",
                 inline=False)
-    await interaction.response.send_message(embed=embed)
+    await interaction.followup.send(embed=embed)
 
 
 @loa_list_slash.error
@@ -12316,19 +12813,21 @@ async def loa_list_slash_err(interaction, error):
 @app_commands.describe(loa_id="LOA request ID")
 @slash_cmd_role("loaapprove")
 async def loa_approve_slash(interaction: discord.Interaction, loa_id: int):
+    await interaction.response.defer()
     data = load_data()
     rec = get_loa(data, loa_id)
     if not rec or rec["guild_id"] != interaction.guild.id:
-        return await interaction.response.send_message(embed=error_embed(f"LOA #{loa_id} not found."), ephemeral=True)
+        return await interaction.followup.send(embed=error_embed(f"LOA #{loa_id} not found."), ephemeral=True)
     if rec["status"] != "pending":
-        return await interaction.response.send_message(embed=warn_embed(f"LOA #{loa_id} is already **{rec['status']}**."), ephemeral=True)
+        return await interaction.followup.send(embed=warn_embed(f"LOA #{loa_id} is already **{rec['status']}**."), ephemeral=True)
     set_loa_status(data, loa_id, "approved", interaction.user)
     member = interaction.guild.get_member(rec["user_id"])
     if member:
+        await apply_loa_role(member, f"LOA #{loa_id} approved by {interaction.user}")
         await dm_member(member, "LOA Approved", interaction.guild.name,
                         f"Your LOA request has been approved until <t:{int(datetime.fromisoformat(rec['end']).timestamp())}:F>.",
                         loa_id, moderator=interaction.user)
-    await interaction.response.send_message(embed=success_embed(f"LOA **#{loa_id}** for **{rec['user_tag']}** approved."))
+    await interaction.followup.send(embed=success_embed(f"LOA **#{loa_id}** for **{rec['user_tag']}** approved."))
 
 
 @loa_approve_slash.error
@@ -12341,17 +12840,18 @@ async def loa_approve_slash_err(interaction, error):
 @app_commands.describe(loa_id="LOA request ID", reason="Reason for denial")
 @slash_cmd_role("loadeny")
 async def loa_deny_slash(interaction: discord.Interaction, loa_id: int, reason: str = "No reason provided"):
+    await interaction.response.defer()
     data = load_data()
     rec = get_loa(data, loa_id)
     if not rec or rec["guild_id"] != interaction.guild.id:
-        return await interaction.response.send_message(embed=error_embed(f"LOA #{loa_id} not found."), ephemeral=True)
+        return await interaction.followup.send(embed=error_embed(f"LOA #{loa_id} not found."), ephemeral=True)
     if rec["status"] != "pending":
-        return await interaction.response.send_message(embed=warn_embed(f"LOA #{loa_id} is already **{rec['status']}**."), ephemeral=True)
+        return await interaction.followup.send(embed=warn_embed(f"LOA #{loa_id} is already **{rec['status']}**."), ephemeral=True)
     set_loa_status(data, loa_id, "denied", interaction.user)
     member = interaction.guild.get_member(rec["user_id"])
     if member:
         await dm_member(member, "LOA Denied", interaction.guild.name, reason, loa_id, moderator=interaction.user)
-    await interaction.response.send_message(embed=success_embed(f"LOA **#{loa_id}** for **{rec['user_tag']}** denied."))
+    await interaction.followup.send(embed=success_embed(f"LOA **#{loa_id}** for **{rec['user_tag']}** denied."))
 
 
 @loa_deny_slash.error
@@ -12366,13 +12866,15 @@ async def loa_end_slash(interaction: discord.Interaction, member: discord.Member
     target = member or interaction.user
     if target.id != interaction.user.id and not is_full_mod(interaction.user):
         return await interaction.response.send_message(embed=error_embed("You can only end your own LOA."), ephemeral=True)
+    await interaction.response.defer()
     data = load_data()
     user_loas = [l for l in get_user_loas(data, interaction.guild.id, target.id) if l["status"] == "approved"]
     if not user_loas:
-        return await interaction.response.send_message(embed=error_embed(f"**{target.display_name}** has no active LOA."), ephemeral=True)
+        return await interaction.followup.send(embed=error_embed(f"**{target.display_name}** has no active LOA."), ephemeral=True)
     latest = sorted(user_loas, key=lambda x: x["id"])[-1]
     set_loa_status(data, latest["id"], "ended", interaction.user)
-    await interaction.response.send_message(embed=success_embed(f"LOA **#{latest['id']}** for **{target}** has been ended."))
+    await remove_loa_role(target, f"LOA #{latest['id']} ended by {interaction.user}")
+    await interaction.followup.send(embed=success_embed(f"LOA **#{latest['id']}** for **{target}** has been ended."))
 
 
 bot.tree.add_command(loa_group)
@@ -12662,6 +13164,121 @@ async def massecho_slash(interaction: discord.Interaction, message: str):
 async def massecho_slash_error(interaction, error):
     if isinstance(error, app_commands.CheckFailure):
         await slash_silent_fail(interaction)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  .LOVE — a private command, hard-locked to exactly two user IDs.
+#
+#  This intentionally does NOT use require_cmd_role/slash_cmd_role, is NOT
+#  added to PERM_CATEGORIES/.setup perms, and does NOT check is_admin() or
+#  BOT_OWNER_ID. Nobody -- not admins, not the server owner, not the bot
+#  owner -- can be granted access to this. Only the two IDs below, full stop.
+#  (Change LOVE_START_DATE below if the date needs adjusting.)
+# ══════════════════════════════════════════════════════════════════════════════
+
+LOVE_ALLOWED_USER_IDS = {1358943906246692934, 1455245036860997840}
+
+LOVE_START_DATE = datetime(2026, 3, 26, tzinfo=timezone.utc)   # 🩷 the day it all started
+
+LOVE_QUOTES = [
+    "Some love stories are written in the stars, ours is written in every little moment together.",
+    "In a sea of people, my eyes will always search for you.",
+    "You are my today, and all of my tomorrows.",
+    "Every love story is beautiful, but ours is my favorite.",
+    "Home isn't a place, it's a person -- and I found mine.",
+    "Distance means so little when someone means so much.",
+    "You're the last thought in my mind before I fall asleep, and the first when I wake up.",
+    "Falling in love with you was the easiest thing I've ever done.",
+    "With you, every ordinary moment feels like a memory worth keeping.",
+]
+
+
+def _love_elapsed_string(start: datetime) -> str:
+    now   = datetime.now(timezone.utc)
+    delta = now - start
+    days_total = max(delta.days, 0)
+
+    years, rem_days = divmod(days_total, 365)
+    months, days    = divmod(rem_days, 30)
+    hours, rem      = divmod(delta.seconds, 3600)
+    minutes, seconds = divmod(rem, 60)
+
+    parts = []
+    if years:
+        parts.append(f"{years} year{'s' if years != 1 else ''}")
+    if months:
+        parts.append(f"{months} month{'s' if months != 1 else ''}")
+    if days or not parts:
+        parts.append(f"{days} day{'s' if days != 1 else ''}")
+    parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+    parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+    parts.append(f"{seconds} second{'s' if seconds != 1 else ''}")
+    return ", ".join(parts)
+
+
+async def _build_love_embed() -> discord.Embed:
+    ids = list(LOVE_ALLOWED_USER_IDS)
+    try:
+        user_a = await bot.fetch_user(ids[0])
+    except (discord.NotFound, discord.HTTPException):
+        user_a = None
+    try:
+        user_b = await bot.fetch_user(ids[1])
+    except (discord.NotFound, discord.HTTPException):
+        user_b = None
+
+    quote     = random.choice(LOVE_QUOTES)
+    elapsed   = _love_elapsed_string(LOVE_START_DATE)
+    start_ts  = int(LOVE_START_DATE.timestamp())
+
+    embed = discord.Embed(
+        title="✨💗  A Little Love Note  💗✨",
+        description=(
+            f"*{quote}*\n"
+            f"˚ ༘ ⋆｡˚ 🩷 ⋆｡˚ ༘⋆｡˚ 🩷 ⋆｡˚ ༘⋆"
+        ),
+        color=discord.Color(0xFF69B4),
+        timestamp=datetime.now(timezone.utc),
+    )
+
+    embed.add_field(
+        name="💞 Us",
+        value=f"{user_a.mention if user_a else '`Unknown User`'}   💘   {user_b.mention if user_b else '`Unknown User`'}",
+        inline=False,
+    )
+    embed.add_field(name="📅 Together Since", value=f"<t:{start_ts}:D>", inline=True)
+    embed.add_field(name="⏳ Time Together", value=f"```{elapsed}```", inline=False)
+    embed.add_field(
+        name="🌷 A Little Reminder",
+        value="No matter how many days pass, every single one is worth it. 🩷",
+        inline=False,
+    )
+
+    if user_a:
+        embed.set_thumbnail(url=user_a.display_avatar.url)
+    if user_b:
+        embed.set_image(url=user_b.display_avatar.url)
+
+    embed.set_author(
+        name=f"{user_a.display_name if user_a else 'Someone'} 🩷 {user_b.display_name if user_b else 'Someone'}",
+        icon_url=user_a.display_avatar.url if user_a else None,
+    )
+    embed.set_footer(
+        text="Forever & always 🩷 · made with love",
+        icon_url=user_b.display_avatar.url if user_b else None,
+    )
+    return embed
+
+
+@bot.command(name="love")
+async def love_cmd(ctx):
+    # Hard-locked -- not configurable, no admin/owner bypass, on purpose.
+    # Intentionally prefix-only: no slash command exists for this, so it
+    # never appears in Discord's "/" command list for anyone.
+    if ctx.author.id not in LOVE_ALLOWED_USER_IDS:
+        return
+    embed = await _build_love_embed()
+    await ctx.send(embed=embed)
 
 
 if not TOKEN:
