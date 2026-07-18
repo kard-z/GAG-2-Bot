@@ -53,13 +53,7 @@ TRIAL_MOD_ROLE_NAME  = "Trial Moderatorerator"
 STAFF_ROLE_KEYWORDS  = ("Staff Team", "admin", "mod", "helper", "support", "management")
 JAIL_ROLE_NAME       = "Jailed"
 MUTED_ROLE_NAME      = "Muted"
-<<<<<<< HEAD
 DATA_FILE            = "bot_data.db"   # SQLite database (was bot_data.json)
-=======
-
-DATA_FILE            = "bot_data.db"   # SQLite database (was bot_data.json)
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
 DEFAULT_MUTE_SECONDS = 14 * 24 * 60 * 60
 JAIL_PURGE_MESSAGES  = 500
 # Small pause between individual (non-bulk) message deletions so a jail/purge
@@ -91,10 +85,6 @@ WHITELISTED_LINKS = ["discord.gg", "youtube.com", "youtu.be"]
 #  DEFAULT CMD_ROLES — used as fallback if no per-guild config saved
 # ══════════════════════════════════════════════════════════════════════════════
 CMD_ROLES_DEFAULT = {
-<<<<<<< HEAD
-=======
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     "setup":      ["Head Executives"],
 }
 _guild_cmd_roles: dict[int, dict] = {}
@@ -127,19 +117,11 @@ ACTION_COLORS = {
 ACTION_ICONS = {
     "Ban": "🔨", "Unban": "✅", "Kick": "👢", "Mute": "🔇", "Unmute": "🔊",
     "Warn": "⚠️", "Unwarn": "🗑️", "Jail": "🔒", "Unjail": "🔓", "Automod": "🤖",
-<<<<<<< HEAD
     "DWC": "🏷️",
     "Remove DWC": "🏷️",
     "Infraction": "⚠️", "Remove Infraction": "🗑️", "Promotion": "⬆️", "Demotion": "⬇️",
     "LOA Request": "🌴", "LOA Approved": "✅", "LOA Denied": "❌", "LOA Ended": "🔚",
     "Activity Notice": "📨",
-=======
-
-    "DWC": "🏷️",
-
-    "Remove DWC": "🏷️",
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
 }
 
 def result_embed(action: str, target, reason: str, case_id: int, extra: str = "") -> discord.Embed:
@@ -304,7 +286,6 @@ COMMAND_SYNTAX = {
         "note":    "Assigns the configured appeal-rejection role to the member.",
         "perms":   "Moderator / Admin",
     },
-<<<<<<< HEAD
     "dwc": {
         "usage":   ".dwc @user [reason]",
         "example": ".dwc @John won the weekly contest",
@@ -317,33 +298,6 @@ COMMAND_SYNTAX = {
         "note":    "Removes the configured DWC special role from the member.",
         "perms":   "Moderator / Admin",
     },
-=======
-
-    "dwc": {
-
-        "usage":   ".dwc @user [reason]",
-
-        "example": ".dwc @John won the weekly contest",
-
-        "note":    "Assigns the configured DWC special role to the member.",
-
-        "perms":   "Moderator / Admin",
-
-    },
-
-    "rdwc": {
-
-        "usage":   ".rdwc @user [reason]",
-
-        "example": ".rdwc @John appeal accepted",
-
-        "note":    "Removes the configured DWC special role from the member.",
-
-        "perms":   "Moderator / Admin",
-
-    },
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     "ping": {
         "usage":   ".ping",
         "example": ".ping",
@@ -618,7 +572,6 @@ def _default_data() -> dict:
         "mod_actions": {}, "afk": {}, "cmd_roles": {}, "giveaways": {},
         "setup_done": {}, "channel_whitelist": {}, "message_stats": {},
         "jail_requests": {}, "jail_request_channel": {}, "next_jreq": 1,
-<<<<<<< HEAD
         "appeal_roles": {}, "dwc_roles": {}, "vouches": {}, "scam_vouches": {},
         "next_scam_vouch": 1, "scam_vouch_cooldowns": {},
         "staff_infractions": {}, "promotions": {}, "loa": {}, "next_loa": 1, "loa_channel": {}, "loa_roles": {},
@@ -632,11 +585,6 @@ def _default_data() -> dict:
         "quota_progress": {},
         "quota_reset_at": {},
         "quota_reset_roles": {},
-=======
-
-        "appeal_roles": {}, "dwc_roles": {}
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     }
 
 def _decrypt_bytes(raw: bytes) -> dict:
@@ -683,37 +631,6 @@ def _get_db_connection() -> sqlite3.Connection:
     conn.commit()
     return conn
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  SQLITE STORAGE LAYER
-#
-#  Replaces the old plain bot_data.json file with a SQLite database
-#  (bot_data.db). The bot's internal data shape is unchanged -- it is still
-#  one big dict (data["cases"], data["warns"], etc.) -- but it is now stored
-#  as a single encrypted blob inside a SQLite table instead of a raw JSON
-#  file. This gives proper atomic transactions and a real database file
-#  while keeping every existing function in this bot (which all read/write
-#  via load_data()/save_data()) working unchanged.
-#
-#  A "legacy_json" row is also kept holding the most recent N versions'
-#  worth of history is NOT kept -- SQLite WAL + the OS handle crash safety,
-#  and save_data() still does an atomic write via a transaction.
-# ══════════════════════════════════════════════════════════════════════════════
-
-_DB_ROW_KEY = "bot_data"
-
-def _get_db_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DATA_FILE)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS kv_store ("
-        "  key TEXT PRIMARY KEY,"
-        "  value BLOB NOT NULL,"
-        "  updated_at TEXT NOT NULL"
-        ")"
-    )
-    conn.commit()
-    return conn
-
 def load_data() -> dict:
     if not os.path.exists(DATA_FILE):
         return _default_data()
@@ -723,27 +640,15 @@ def load_data() -> dict:
             "SELECT value FROM kv_store WHERE key = ?", (_DB_ROW_KEY,)
         ).fetchone()
         conn.close()
-<<<<<<< HEAD
         if row is None:
             return _default_data()
-=======
-
-        if row is None:
-            return _default_data()
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
         data = _decrypt_bytes(row[0])
     except (json.JSONDecodeError, ValueError, UnicodeDecodeError, sqlite3.Error) as e:
         print(f"[load_data] WARNING: {DATA_FILE} could not be read/parsed ({e}); using defaults for this call.")
         data = _default_data()
         data["_load_failed"] = True
         return data
-<<<<<<< HEAD
     for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles", "vouches", "scam_vouches", "scam_vouch_cooldowns", "staff_infractions", "promotions", "loa", "loa_channel", "loa_roles", "promotion_channel", "demotion_channel", "infraction_channel", "demote_remove_role", "stafflist_roles", "promotion_requests", "demotion_requests", "infraction_requests", "invite_cleanup", "quotas", "quota_progress", "quota_reset_at", "quota_reset_roles"):
-=======
-
-    for key in ("persistent_roles", "mute_timers", "mod_actions", "afk", "cmd_roles", "giveaways", "setup_done", "channel_whitelist", "message_stats", "jail_requests", "jail_request_channel", "appeal_roles", "dwc_roles"):
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
         if key not in data:
             data[key] = {}
     if "next_jreq" not in data:
@@ -780,15 +685,8 @@ def save_data(data: dict):
         if had_existing_row:
             print(f"[save_data] REFUSED: this data dict came from a failed read of {DATA_FILE}; refusing to save possibly-default data. Skipping save to avoid data loss.")
             return
-<<<<<<< HEAD
     plaintext  = json.dumps(data).encode("utf-8")
     ciphertext = _fernet.encrypt(plaintext)
-=======
-
-    plaintext  = json.dumps(data).encode("utf-8")
-    ciphertext = _fernet.encrypt(plaintext)
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     # Single transaction = atomic write. SQLite (with WAL mode) guarantees
     # this either fully commits or fully rolls back -- no half-written
     # files, no manual temp-file/os.replace dance, no separate .bak copy
@@ -854,30 +752,6 @@ def set_loa_role_id(guild_id: int, role_id: int | None):
         data["loa_roles"].pop(str(guild_id), None)
     else:
         data["loa_roles"][str(guild_id)] = role_id
-    save_data(data)
-
-def get_dwc_role_id(guild_id: int) -> int | None:
-
-    data = load_data()
-
-    role_id = data.get("dwc_roles", {}).get(str(guild_id))
-
-    return int(role_id) if role_id else None
-
-def set_dwc_role_id(guild_id: int, role_id: int | None):
-
-    data = load_data()
-
-    data.setdefault("dwc_roles", {})
-
-    if role_id is None:
-
-        data["dwc_roles"].pop(str(guild_id), None)
-
-    else:
-
-        data["dwc_roles"][str(guild_id)] = role_id
-
     save_data(data)
 
 def next_case_id(data: dict) -> int:
@@ -1499,7 +1373,6 @@ def build_quota_leaderboard_embed(guild: discord.Guild) -> discord.Embed:
         footer = f"Showing top 15 of {len(rows)} staff • {footer}"
     embed.set_footer(text=footer)
     return embed
-    _guild_cmd_roles[guild_id] = cmd_roles
 # ══════════════════════════════════════════════════════════════════════════════
 #  GIVEAWAY SYSTEM — GiveawayBoat-style UI
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2273,100 +2146,7 @@ def build_modcases_embed(guild, data: dict, member=None, requester=None) -> disc
         embed.set_footer(text=f"{len(actions)} total case(s) — {footer_who}  •  showing last 15  •  Requested by {requester}")
     return embed
 
-<<<<<<< HEAD
 class ModlogsView(discord.ui.View):
-=======
-def build_modcases_embed(guild, data: dict, member=None, requester=None) -> discord.Embed:
-
-    if member is None:
-
-        actions = list(data["cases"].get(str(guild.id), []))
-
-        embed = discord.Embed(
-
-            title="🛡️  Server Mod Cases",
-
-            description="All moderation actions taken in this server.",
-
-            color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
-
-        if guild.icon:
-
-            embed.set_thumbnail(url=guild.icon.url)
-
-        no_actions_text = "No moderation actions have been recorded in this server."
-
-        footer_who = "server-wide"
-
-    else:
-
-        records = get_mod_actions(data, guild.id, member.id)
-
-        actions = records.get("actions", [])
-
-        embed = discord.Embed(
-
-            title=f"🛡️  Mod Cases — {member}",
-
-            description=f"Actions taken by **{member.display_name}** as a moderator.",
-
-            color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
-
-        embed.set_thumbnail(url=member.display_avatar.url)
-
-        no_actions_text = f"**{member.display_name}** has no recorded mod actions."
-
-        footer_who = str(member)
-
-    if not actions:
-
-        embed.description = no_actions_text
-
-        embed.add_field(name="📊 Total Cases", value="0", inline=False)
-
-    else:
-
-        counts: dict[str, int] = {}
-
-        for a in actions:
-
-            counts[a["action"]] = counts.get(a["action"], 0) + 1
-
-        summary = "  ".join(f"{ACTION_ICONS.get(k, '📋')} **{k}**: {v}" for k, v in sorted(counts.items()))
-
-        embed.add_field(name=f"📊 Total Cases — {len(actions)}", value=summary, inline=False)
-
-        embed.add_field(name="\u200b", value="─────────────────────────────────", inline=False)
-
-        for a in actions[-15:][::-1]:
-
-            ts   = datetime.fromisoformat(a["timestamp"])
-
-            unix = int(ts.timestamp())
-
-            icon = ACTION_ICONS.get(a["action"], "📋")
-
-            value = f"**Target:** {a['target_tag']} (`{a['target_id']}`)\n**Reason:** {a['reason']}"
-
-            if member is None:
-
-                value = f"**Moderator:** {a['mod_tag']}\n" + value
-
-            embed.add_field(
-
-                name=f"{icon} {a['action']} — Case #{a['case']}  •  <t:{unix}:d>",
-
-                value=value,
-
-                inline=False)
-
-        embed.set_footer(text=f"{len(actions)} total case(s) — {footer_who}  •  showing last 15  •  Requested by {requester}")
-
-    return embed
-
-
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     def __init__(self, member, cases, invoker_id: int):
         super().__init__(timeout=180)
         self.member      = member
@@ -3268,18 +3048,12 @@ PERM_CATEGORIES = {
     "🛠️  Misc / Utility": {
         "emoji": "🛠️",
         "description": "Custom commands, role management, AFK and setup",
-<<<<<<< HEAD
         "commands": ["role", "rappeal", "dwc", "rdwc", "addcmd", "delcmd", "listcmds", "afk", "ping", "clearlinks"],
     },
     "🏅  Vouch System": {
         "emoji": "🏅",
         "description": "Vouch, scam reports and staff-only vouch management",
         "commands": ["addvouch", "removevouch", "vouch", "scamvouch", "removescamvouch", "vouches"],
-=======
-
-        "commands": ["role", "rappeal", "dwc", "rdwc", "addcmd", "delcmd", "listcmds", "afk", "setup", "ping"],
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     },
     "🚫  Channel Whitelist": {
         "emoji": "🚫",
@@ -3296,7 +3070,6 @@ PERM_CATEGORIES = {
         "description": "Set the special role given by appeal rejection commands",
         "commands": [],
     },
-<<<<<<< HEAD
     "DWC Roles": {
         "emoji": "🏷️",
         "description": "Set the special role given by .dwc / /dwc",
@@ -3355,33 +3128,14 @@ PERM_CATEGORIES = {
         "description": "Auto-delete invite links with 0 uses, and how often it runs",
         "commands": [],
     },
-=======
-
-    "DWC Roles": {
-
-        "emoji": "🏷️",
-
-        "description": "Set the special role given by .dwc / /dwc",
-
-        "commands": [],
-
-    },
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
 }
 COMMAND_EMOJIS = {
     "ban": "🔨", "unban": "✅", "kick": "👢", "mute": "🔇", "unmute": "🔊",
     "warn": "⚠️", "unwarn": "🗑️", "warnings": "📋", "modlogs": "📖",
     "modcases": "🛡️", "case": "🔍", "editcase": "✏️", "editc": "📝",
     "jail": "🔒", "unjail": "🔓", "jreq": "🚨", "purge": "🗑️", "purgeuser": "🧹", "w": "👤", "role": "🎭",
-<<<<<<< HEAD
     "addcmd": "➕", "delcmd": "➖", "listcmds": "📃", "afk": "💤", "setup": "⚙️", "rappeal": "🎯", "dwc": "🏷️", "rdwc": "🏷️",
     "addvouch": "🏅", "removevouch": "🗑️", "vouch": "✅", "scamvouch": "🚨", "removescamvouch": "🗑️", "vouches": "📋",
-=======
-
-    "addcmd": "➕", "delcmd": "➖", "listcmds": "📃", "afk": "💤", "setup": "⚙️", "rappeal": "🎯", "dwc": "🏷️", "rdwc": "🏷️",
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     "giveaway create": "🎉", "giveaway end": "🏁", "giveaway reroll": "🔁", "giveaway delete": "❌", "giveaway list": "📜",
     "ping": "📶", "clearlinks": "🔗",
     "infraction": "⚠️", "infractions": "📋", "removeinfraction": "🗑️",
@@ -3399,24 +3153,12 @@ def _perms_main_embed(guild: discord.Guild, guild_cmd_roles: dict) -> discord.Em
     embed = discord.Embed(
         title="⚙️  Command Permission Manager",
         description=(
-<<<<<<< HEAD
             "Use the dropdown below to select a **category** to view or edit.\n\n"
             "**Admins and the bot owner can always use any command.**"
-=======
-
-            "Use the dropdown below to select a **category** to view or edit.\n\n"
-
-            "**Admins and the bot owner can always use any command.**"
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
         ),
         color=discord.Color.blurple(),
         timestamp=datetime.now(timezone.utc),
     )
-<<<<<<< HEAD
-=======
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     embed.set_footer(text=f"Server: {guild.name}")
     return embed
 
@@ -3465,7 +3207,6 @@ class CategorySelectDropdown(discord.ui.Select):
             embed = view.build_embed()
             await interaction.response.edit_message(embed=embed, view=view)
             return
-<<<<<<< HEAD
         if cat_name == "DWC Roles":
             view  = DWCRoleConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
             embed = view.build_embed()
@@ -3511,19 +3252,6 @@ class CategorySelectDropdown(discord.ui.Select):
             embed = view.build_embed()
             await interaction.response.edit_message(embed=embed, view=view)
             return
-=======
-
-        if cat_name == "DWC Roles":
-
-            view  = DWCRoleConfigView(interaction.guild, self.guild_cmd_roles, self.invoker_id)
-
-            embed = view.build_embed()
-
-            await interaction.response.edit_message(embed=embed, view=view)
-
-            return
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
         view = CmdSelectView(cat_name, self.guild_cmd_roles, self.invoker_id)
         embed = view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
@@ -4305,107 +4033,6 @@ class StaffListRoleConfigView(discord.ui.View):
             return False
         return True
 
-
-class DWCRoleConfigSelect(discord.ui.RoleSelect):
-
-    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
-
-        self.guild           = guild
-
-        self.guild_cmd_roles = guild_cmd_roles
-
-        self.invoker_id      = invoker_id
-
-        super().__init__(
-
-            placeholder="Choose the special role for .dwc...",
-
-            min_values=1, max_values=1,
-
-        )
-
-    async def callback(self, interaction: discord.Interaction):
-
-        role = self.values[0]
-
-        set_dwc_role_id(self.guild.id, role.id)
-
-        view  = DWCRoleConfigView(self.guild, self.guild_cmd_roles, self.invoker_id)
-
-        embed = view.build_embed(updated_to=role)
-
-        await interaction.response.edit_message(embed=embed, view=view)
-
-
-class DWCRoleConfigView(discord.ui.View):
-
-    def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
-
-        super().__init__(timeout=300)
-
-        self.guild           = guild
-
-        self.guild_cmd_roles = guild_cmd_roles
-
-        self.invoker_id      = invoker_id
-
-        self.add_item(DWCRoleConfigSelect(guild, guild_cmd_roles, invoker_id))
-
-        self.add_item(BackToCategoryButton(guild_cmd_roles, invoker_id))
-
-    def build_embed(self, updated_to: discord.Role = None) -> discord.Embed:
-
-        data = load_data()
-
-        role_id = data.get("dwc_roles", {}).get(str(self.guild.id))
-
-        role = self.guild.get_role(role_id) if role_id else None
-
-        embed = discord.Embed(
-
-            title="🏷️  DWC Roles",
-
-            description=(
-
-                "Choose the role the bot should give when you run `.dwc` or `/dwc`.\n\n"
-
-                "**Select a role below to set or change it.**"
-
-            ),
-
-            color=discord.Color.blurple(),
-
-            timestamp=datetime.now(timezone.utc),
-
-        )
-
-        if updated_to:
-
-            embed.add_field(name="✅ Updated", value=f"DWC role is now {updated_to.mention}.", inline=False)
-
-        elif role:
-
-            embed.add_field(name="Current Role", value=role.mention, inline=False)
-
-        else:
-
-            embed.add_field(name="Current Role", value="*Not set yet*", inline=False)
-
-        embed.set_footer(text="Admins and the bot owner can always use any command.")
-
-        return embed
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-
-        if interaction.user.id != self.invoker_id:
-
-            await interaction.response.send_message(
-                embed=error_embed("Only the original user can use this."), ephemeral=True)
-
-            return False
-
-        return True
-
 class CategorySelectView(discord.ui.View):
     def __init__(self, guild_cmd_roles: dict, invoker_id: int):
         super().__init__(timeout=300)
@@ -4476,13 +4103,7 @@ class CmdSelectView(discord.ui.View):
             color=discord.Color.blurple(),
             timestamp=datetime.now(timezone.utc),
         )
-<<<<<<< HEAD
         embed.add_field(name="Current Permissions", value="\n".join(lines) if lines else "*No commands in this category*", inline=False)
-=======
-
-        embed.add_field(name="Current Permissions", value="\n".join(lines) if lines else "*No commands in this category*", inline=False)
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
         embed.set_footer(text="Admins and the bot owner can always use any command.")
         return embed
 
@@ -4623,26 +4244,7 @@ INVITE_CLEANUP_TICK_SECONDS             = 300     # how often the watcher checks
 INVITE_CLEANUP_DEFAULT_MAX_PER_RUN      = 10      # how many 0-use invites to delete per run, by default
 INVITE_CLEANUP_MAX_PER_RUN_CEILING      = 100     # hard ceiling so it can't be set absurdly high
 
-<<<<<<< HEAD
 def get_invite_cleanup_config(guild_id: int) -> dict:
-=======
-@bot.event
-
-async def on_ready():
-
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-
-    try:
-
-        synced = await bot.tree.sync()
-
-        print(f"Synced {len(synced)} slash command(s)")
-
-    except Exception as e:
-
-        print(f"Slash sync failed: {e}")
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     data = load_data()
     cfg = data.get("invite_cleanup", {}).get(str(guild_id))
     if not cfg:
@@ -5387,69 +4989,6 @@ async def remove_loa_role(member: discord.Member, reason: str):
     except discord.Forbidden:
         return False, "I don't have permission to manage the configured LOA role."
 
-async def apply_dwc_role(member: discord.Member, reason: str):
-
-    role_id = get_dwc_role_id(member.guild.id)
-
-    if not role_id:
-
-        return False, "No DWC role has been configured yet. Use `.setup perms` → **DWC Roles** to set one."
-
-    role = member.guild.get_role(role_id)
-
-    if role is None:
-
-        return False, "The configured DWC role no longer exists."
-
-    if role >= member.guild.me.top_role:
-
-        return False, "I can't manage the configured DWC role because it is above my highest role."
-
-    try:
-
-        if role not in member.roles:
-
-            await member.add_roles(role, reason=reason)
-
-        return True, role
-
-    except discord.Forbidden:
-
-        return False, "I don't have permission to manage the configured DWC role."
-
-
-async def remove_dwc_role(member: discord.Member, reason: str):
-
-    role_id = get_dwc_role_id(member.guild.id)
-
-    if not role_id:
-
-        return False, "No DWC role has been configured yet. Use `.setup perms` → **DWC Roles** to set one."
-
-    role = member.guild.get_role(role_id)
-
-    if role is None:
-
-        return False, "The configured DWC role no longer exists."
-
-    if role >= member.guild.me.top_role:
-
-        return False, "I can't manage the configured DWC role because it is above my highest role."
-
-    if role not in member.roles:
-
-        return False, f"{member.mention} doesn't have the configured DWC role."
-
-    try:
-
-        await member.remove_roles(role, reason=reason)
-
-        return True, role
-
-    except discord.Forbidden:
-
-        return False, "I don't have permission to manage the configured DWC role."
-
 
 @bot.command(name="rappeal")
 @require_cmd_role("rappeal")
@@ -5473,7 +5012,6 @@ async def rappeal_cmd_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send(embed=error_embed("You don't have permission to use `.rappeal`."))
 
-<<<<<<< HEAD
 @bot.command(name="dwc")
 @require_cmd_role("dwc")
 async def dwc_cmd(ctx, member: discord.Member = None, *, reason="No reason provided"):
@@ -5493,100 +5031,6 @@ async def dwc_cmd(ctx, member: discord.Member = None, *, reason="No reason provi
     embed.set_footer(text=f"Done by {ctx.author}", icon_url=ctx.author.display_avatar.url)
     view = ProofView(ctx.guild, cid, "DWC", ctx.author, member, reason)
     await ctx.send(embed=embed, view=view)
-=======
-
-@bot.command(name="dwc")
-@require_cmd_role("dwc")
-async def dwc_cmd(ctx, member: discord.Member = None, *, reason="No reason provided"):
-
-    if member is None:
-
-        return await ctx.send(embed=syntax_embed("dwc"))
-
-    success, result = await apply_dwc_role(member, f"DWC role given by {ctx.author}: {reason}")
-
-    if not success:
-
-        return await ctx.send(embed=error_embed(result))
-
-    role = result
-
-    data = load_data()
-
-    cid  = add_case(data, ctx.guild.id, "DWC", ctx.author, member, reason)
-
-    embed = discord.Embed(
-
-        title=f"🏷️ DWC Role Given | Case #{cid}",
-
-        description=f"{member.mention} was given {role.mention}.",
-
-        color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
-
-    embed.add_field(name="Reason", value=reason, inline=False)
-
-    embed.set_footer(text=f"Done by {ctx.author}", icon_url=ctx.author.display_avatar.url)
-
-    view = ProofView(ctx.guild, cid, "DWC", ctx.author, member, reason)
-
-    await ctx.send(embed=embed, view=view)
-
-@dwc_cmd.error
-
-async def dwc_cmd_error(ctx, error):
-
-    if isinstance(error, commands.CheckFailure):
-
-        await ctx.send(embed=error_embed("You don't have permission to use `.dwc`."))
-
-
-@bot.command(name="rdwc")
-@require_cmd_role("rdwc")
-async def rdwc_cmd(ctx, member: discord.Member = None, *, reason="No reason provided"):
-
-    if member is None:
-
-        return await ctx.send(embed=syntax_embed("rdwc"))
-
-    success, result = await remove_dwc_role(member, f"DWC role removed by {ctx.author}: {reason}")
-
-    if not success:
-
-        return await ctx.send(embed=error_embed(result))
-
-    role = result
-
-    data = load_data()
-
-    cid  = add_case(data, ctx.guild.id, "Remove DWC", ctx.author, member, reason)
-
-    embed = discord.Embed(
-
-        title=f"🏷️ DWC Role Removed | Case #{cid}",
-
-        description=f"{role.mention} was removed from {member.mention}.",
-
-        color=discord.Color.green(), timestamp=datetime.now(timezone.utc))
-
-    embed.add_field(name="Reason", value=reason, inline=False)
-
-    embed.set_footer(text=f"Done by {ctx.author}", icon_url=ctx.author.display_avatar.url)
-
-    view = ProofView(ctx.guild, cid, "Remove DWC", ctx.author, member, reason)
-
-    await ctx.send(embed=embed, view=view)
-
-@rdwc_cmd.error
-
-async def rdwc_cmd_error(ctx, error):
-
-    if isinstance(error, commands.CheckFailure):
-
-        await ctx.send(embed=error_embed("You don't have permission to use `.rdwc`."))
-
-
-#  PREFIX MOD COMMANDS
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
 
 @dwc_cmd.error
 async def dwc_cmd_error(ctx, error):
@@ -6828,16 +6272,8 @@ async def setjreqchannel_slash(interaction: discord.Interaction, channel: discor
 @bot.command(name="modcases")
 @require_cmd_role("modcases")
 async def modcases_cmd(ctx, member: discord.Member = None):
-<<<<<<< HEAD
     data  = load_data()
     embed = build_modcases_embed(ctx.guild, data, member, requester=ctx.author)
-=======
-
-    data  = load_data()
-
-    embed = build_modcases_embed(ctx.guild, data, member, requester=ctx.author)
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     await ctx.send(embed=embed)
 
 @modcases_cmd.error
@@ -7830,38 +7266,18 @@ async def giveaway_reroll(interaction: discord.Interaction, message_id: str):
 @giveaway_reroll.error
 async def giveaway_reroll_err(interaction, error):
     if isinstance(error, app_commands.CheckFailure): await slash_silent_fail(interaction)
-<<<<<<< HEAD
 bot.tree.add_command(giveaway_group)
-=======
-
-bot.tree.add_command(giveaway_group)
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
 # ══════════════════════════════════════════════════════════════════════════════
 #  SLASH — MISC
 # ══════════════════════════════════════════════════════════════════════════════
 
 @bot.tree.command(name="modcases", description="[Staff] Show actions taken by a moderator, or the full server case history")
-<<<<<<< HEAD
 @app_commands.describe(member="Moderator to look up (leave blank for full server history)")
-=======
-
-@app_commands.describe(member="Moderator to look up (leave blank for full server history)")
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
 @slash_cmd_role("modcases")
 async def modcases_slash(interaction: discord.Interaction, member: discord.Member = None):
     await interaction.response.defer()
-<<<<<<< HEAD
     data  = load_data()
     embed = build_modcases_embed(interaction.guild, data, member, requester=interaction.user)
-=======
-
-    data  = load_data()
-
-    embed = build_modcases_embed(interaction.guild, data, member, requester=interaction.user)
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
     await interaction.followup.send(embed=embed)
 
 @modcases_slash.error
@@ -7936,15 +7352,10 @@ async def rejected_appeal_slash_err(interaction, error):
     if isinstance(error, app_commands.CheckFailure): await slash_silent_fail(interaction)
 bot.tree.add_command(rejected_group)
 
-<<<<<<< HEAD
-=======
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
 @bot.tree.command(name="dwc", description="[Mod] Give the configured DWC role to a member")
 @app_commands.describe(member="Member to give the DWC role", reason="Reason")
 @slash_cmd_role("dwc")
 async def dwc_slash(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
-<<<<<<< HEAD
     success, result = await apply_dwc_role(member, f"DWC role given by {interaction.user}: {reason}")
     if not success:
         return await interaction.response.send_message(embed=error_embed(result), ephemeral=True)
@@ -7959,84 +7370,6 @@ async def dwc_slash(interaction: discord.Interaction, member: discord.Member, re
     embed.set_footer(text=f"Done by {interaction.user}", icon_url=interaction.user.display_avatar.url)
     view = ProofView(interaction.guild, cid, "DWC", interaction.user, member, reason)
     await interaction.response.send_message(embed=embed, view=view)
-=======
-
-    success, result = await apply_dwc_role(member, f"DWC role given by {interaction.user}: {reason}")
-
-    if not success:
-
-        return await interaction.response.send_message(embed=error_embed(result), ephemeral=True)
-
-    role = result
-
-    data = load_data()
-
-    cid  = add_case(data, interaction.guild.id, "DWC", interaction.user, member, reason)
-
-    embed = discord.Embed(
-
-        title=f"🏷️ DWC Role Given | Case #{cid}",
-
-        description=f"{member.mention} was given {role.mention}.",
-
-        color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
-
-    embed.add_field(name="Reason", value=reason, inline=False)
-
-    embed.set_footer(text=f"Done by {interaction.user}", icon_url=interaction.user.display_avatar.url)
-
-    view = ProofView(interaction.guild, cid, "DWC", interaction.user, member, reason)
-
-    await interaction.response.send_message(embed=embed, view=view)
-
-@dwc_slash.error
-
-async def dwc_slash_err(interaction, error):
-
-    if isinstance(error, app_commands.CheckFailure): await slash_silent_fail(interaction)
-
-
-@bot.tree.command(name="rdwc", description="[Mod] Remove the configured DWC role from a member")
-@app_commands.describe(member="Member to remove the DWC role from", reason="Reason")
-@slash_cmd_role("rdwc")
-async def rdwc_slash(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
-
-    success, result = await remove_dwc_role(member, f"DWC role removed by {interaction.user}: {reason}")
-
-    if not success:
-
-        return await interaction.response.send_message(embed=error_embed(result), ephemeral=True)
-
-    role = result
-
-    data = load_data()
-
-    cid  = add_case(data, interaction.guild.id, "Remove DWC", interaction.user, member, reason)
-
-    embed = discord.Embed(
-
-        title=f"🏷️ DWC Role Removed | Case #{cid}",
-
-        description=f"{role.mention} was removed from {member.mention}.",
-
-        color=discord.Color.green(), timestamp=datetime.now(timezone.utc))
-
-    embed.add_field(name="Reason", value=reason, inline=False)
-
-    embed.set_footer(text=f"Done by {interaction.user}", icon_url=interaction.user.display_avatar.url)
-
-    view = ProofView(interaction.guild, cid, "Remove DWC", interaction.user, member, reason)
-
-    await interaction.response.send_message(embed=embed, view=view)
-
-@rdwc_slash.error
-
-async def rdwc_slash_err(interaction, error):
-
-    if isinstance(error, app_commands.CheckFailure): await slash_silent_fail(interaction)
-
-#  PING COMMAND
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
 
 @dwc_slash.error
 async def dwc_slash_err(interaction, error):
@@ -8177,13 +7510,7 @@ async def help_cmd(ctx):
         "`editcase` `.editcase <number>` — Interactively edit a case\n"
         "`editc` `.editc <number> <new reason>` — Quickly update a case reason\n"
         "`w` `.w [@user|id]` — Detailed user info\n"
-<<<<<<< HEAD
         "`modcases` `.modcases [@mod]` — Actions by a mod, or full server case history if blank\n"
-=======
-
-        "`modcases` `.modcases [@mod]` — Actions by a mod, or full server case history if blank\n"
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
         "`messages` `.messages [@user]` — View a member's message statistics"), inline=False)
     embed.add_field(name="🔒  Jail Requests — Mod / Trial Moderator", value=(
         "`jreq` `.jreq @user [reason]` — Submit a jail request for a full mod to review\n"
@@ -8201,22 +7528,10 @@ async def help_cmd(ctx):
         "`role` `.role @user <role name>` — Add/remove a role\n"
         "`rappeal` `.rappeal @user [reason]` — Give the configured unappeal role\n"
         "`/rejected appeal` `/rejected appeal @user [reason]` — Same as above (slash version)\n"
-<<<<<<< HEAD
         "`dwc` `.dwc @user [reason]` — Give the configured DWC role\n"
         "`/dwc` `/dwc @user [reason]` — Same as above (slash version)\n"
         "`rdwc` `.rdwc @user [reason]` — Remove the configured DWC role\n"
         "`/rdwc` `/rdwc @user [reason]` — Same as above (slash version)\n"
-=======
-
-        "`dwc` `.dwc @user [reason]` — Give the configured DWC role\n"
-
-        "`/dwc` `/dwc @user [reason]` — Same as above (slash version)\n"
-
-        "`rdwc` `.rdwc @user [reason]` — Remove the configured DWC role\n"
-
-        "`/rdwc` `/rdwc @user [reason]` — Same as above (slash version)\n"
-
->>>>>>> fbb692d (Add .rdwc/dwc proof logging,modcases totals,setup-only perms)
         "`addcmd` `.addcmd <name> <response>` — Create a custom command\n"
         "`delcmd` `.delcmd <name>` — Delete a custom command\n"
         "`listcmds` `.listcmds` — Show all custom commands\n"
