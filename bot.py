@@ -9168,9 +9168,10 @@ bot.tree.add_command(quota_group)
 # ══════════════════════════════════════════════════════════════════════════════
 #  MASS ECHO — BROADCAST A MESSAGE TO MANY CHANNELS AT ONCE
 # ══════════════════════════════════════════════════════════════════════════════
-MASSECHO_SEND_DELAY = 0.35
+MASSECHO_SEND_DELAY = 0.6
 MASSECHO_PROGRESS_EVERY = 3
 MASSECHO_VIEW_TIMEOUT = 120
+MASSECHO_MAX_RETRIES = 3
 
 def _massecho_truncate(text: str, limit: int = 500) -> str:
     if len(text) <= limit:
@@ -9249,6 +9250,23 @@ def resolve_massecho_scope(guild: discord.Guild, scope_value: str):
         return [], "Unknown Category"
     return [c for c in category.text_channels if _massecho_sendable(c, me)], f"📂 {category.name}"
 
+async def _massecho_send_one(channel, message_text) -> bool:
+    """Sends to a single channel, backing off and retrying on 429s instead of
+    letting them count as hard failures. Returns True on success."""
+    for attempt in range(MASSECHO_MAX_RETRIES + 1):
+        try:
+            await channel.send(message_text)
+            return True
+        except discord.HTTPException as e:
+            if e.status == 429 and attempt < MASSECHO_MAX_RETRIES:
+                retry_after = getattr(e, "retry_after", None) or 1.5
+                await asyncio.sleep(retry_after + 0.25)
+                continue
+            return False
+        except discord.Forbidden:
+            return False
+    return False
+
 async def _massecho_run_broadcast(status_message, message_text, channels, scope_label):
     total = len(channels)
     sent = 0
@@ -9256,10 +9274,10 @@ async def _massecho_run_broadcast(status_message, message_text, channels, scope_
     failed_channels = []
     start = time.monotonic()
     for i, channel in enumerate(channels, start=1):
-        try:
-            await channel.send(message_text)
+        ok = await _massecho_send_one(channel, message_text)
+        if ok:
             sent += 1
-        except (discord.Forbidden, discord.HTTPException):
+        else:
             failed += 1
             failed_channels.append(f"#{channel.name}")
         if i % MASSECHO_PROGRESS_EVERY == 0 or i == total:
