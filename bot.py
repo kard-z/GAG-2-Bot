@@ -3256,6 +3256,13 @@ class CategorySelectDropdown(discord.ui.Select):
         embed = view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
 
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item=None):
+        print(f"[CategorySelectDropdown error] {error!r}")
+        if not interaction.response.is_done():
+            await interaction.response.send_message(embed=error_embed(f"Something broke: `{error}`"), ephemeral=True)
+        else:
+            await interaction.followup.send(embed=error_embed(f"Something broke: `{error}`"), ephemeral=True)
+
 class ChannelWhitelistSelect(discord.ui.ChannelSelect):
     def __init__(self, guild: discord.Guild, guild_cmd_roles: dict, invoker_id: int):
         self.guild           = guild
@@ -4053,15 +4060,18 @@ class CmdSelectDropdown(discord.ui.Select):
         self.guild_cmd_roles = guild_cmd_roles
         self.invoker_id      = invoker_id
         cmds = PERM_CATEGORIES[cat_name]["commands"]
-        options = [
-            discord.SelectOption(
-                label=f".{cmd}",
+        options = []
+        for cmd in cmds:
+            raw_roles = guild_cmd_roles.get(cmd, []) or []
+            if not isinstance(raw_roles, (list, tuple)):
+                raw_roles = [raw_roles]
+            role_names = ", ".join(str(r) for r in raw_roles)
+            options.append(discord.SelectOption(
+                label=f".{cmd}"[:100],
                 value=cmd,
                 emoji=COMMAND_EMOJIS.get(cmd, "📌"),
-                description=f"Currently: {', '.join(guild_cmd_roles.get(cmd, [])) or 'Everyone'}",
-            )
-            for cmd in cmds
-        ]
+                description=(f"Currently: {role_names}" if role_names else "Currently: Everyone")[:100],
+            ))
         if not options:
             options = [discord.SelectOption(label="No commands in this category", value="__none__", description="Nothing to configure here")]
         super().__init__(
@@ -4079,6 +4089,13 @@ class CmdSelectDropdown(discord.ui.Select):
         view = RoleEditView(interaction.guild, cmd, self.cat_name, self.guild_cmd_roles, self.invoker_id)
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
 
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item=None):
+        print(f"[CmdSelectDropdown error] {error!r}")
+        if not interaction.response.is_done():
+            await interaction.response.send_message(embed=error_embed(f"Something broke: `{error}`"), ephemeral=True)
+        else:
+            await interaction.followup.send(embed=error_embed(f"Something broke: `{error}`"), ephemeral=True)
+
 class CmdSelectView(discord.ui.View):
     def __init__(self, cat_name: str, guild_cmd_roles: dict, invoker_id: int):
         super().__init__(timeout=300)
@@ -4093,7 +4110,9 @@ class CmdSelectView(discord.ui.View):
         cmds     = cat_data["commands"]
         lines    = []
         for cmd in cmds:
-            roles     = self.guild_cmd_roles.get(cmd, [])
+            roles     = self.guild_cmd_roles.get(cmd, []) or []
+            if not isinstance(roles, (list, tuple)):
+                roles = [roles]
             emoji     = COMMAND_EMOJIS.get(cmd, "📌")
             role_text = ", ".join(f"`{r}`" for r in roles) if roles else "*Everyone*"
             lines.append(f"{emoji} `.{cmd}` → {role_text}")
