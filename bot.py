@@ -3123,6 +3123,11 @@ PERM_CATEGORIES = {
         "description": "Broadcast a message to many channels at once",
         "commands": ["massecho"],
     },
+    "🎯  Games": {
+        "emoji": "🎯",
+        "description": "Guess the Number and other channel mini-games",
+        "commands": ["guessnumber"],
+    },
     "🔗  Invite Link Cleanup": {
         "emoji": "🔗",
         "description": "Auto-delete invite links with 0 uses, and how often it runs",
@@ -4647,6 +4652,8 @@ async def on_member_join(member: discord.Member):
 async def on_message(message: discord.Message):
     if not message.guild or message.author.bot:
         return await bot.process_commands(message)
+    if message.channel.id in active_guess_games:
+        await _handle_guess_number_message(message)
     data = load_data()
     increment_message_stat(data, message.guild.id, message.author.id, message.created_at)
     increment_quota_messages(data, message.guild.id, message.author.id)
@@ -7617,6 +7624,9 @@ async def help_cmd(ctx):
     embed.add_field(name="📣  Mass Echo — Configurable via .setup perms", value=(
         "`massecho` `.massecho <message>` — Broadcast a message to many channels\n"
         "`/massecho` `/massecho` — Same as above (slash version)"), inline=False)
+    embed.add_field(name="🎯  Games — Configurable via .setup perms", value=(
+        "`guessnumber` `.guessnumber <number>` — Unlock the channel and start Guess the Number\n"
+        "`/guessnumber` `/guessnumber` — Same as above (slash version)"), inline=False)
     embed.set_footer(text=f"Requested by {ctx.author}  •  Use .setup to get started",
                      icon_url=ctx.author.display_avatar.url)
     await ctx.send(embed=embed)
@@ -7637,6 +7647,94 @@ async def sysinfo_cmd(ctx):
     embed.add_field(name="Guilds", value=str(len(bot.guilds)), inline=True)
     embed.add_field(name="Cached Members", value=str(sum(g.member_count for g in bot.guilds)), inline=True)
     await ctx.send(embed=embed)
+# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+#  GUESS THE NUMBER
+# ══════════════════════════════════════════════════════════════════════════════
+# channel_id -> {"number": int, "guild_id": int, "starter_id": int, "started_at": datetime}
+active_guess_games: dict[int, dict] = {}
+
+def _guess_number_embed(number_hidden: bool, starter: discord.abc.User, channel: discord.abc.GuildChannel, number: int = None) -> discord.Embed:
+    embed = discord.Embed(
+        title="🎯 Guess the Number",
+        description=(
+            f"{channel.mention} has been unlocked — everyone can talk!\n\n"
+            "A secret number has been picked. Just type your guess as a plain number "
+            "in this channel.\n\n"
+            "First person to guess correctly wins, and the channel **locks again instantly**."
+        ),
+        color=discord.Color.blurple(),
+        timestamp=datetime.now(timezone.utc))
+    embed.set_footer(text=f"Started by {starter}", icon_url=starter.display_avatar.url)
+    return embed
+
+async def _start_guess_number(channel: discord.abc.GuildChannel, starter: discord.abc.User, number: int):
+    """Unlocks the channel for everyone and starts a Guess the Number game.
+    Returns (embed, error) — error is an embed to send instead if something went wrong."""
+    if channel.id in active_guess_games:
+        return None, error_embed("A Guess the Number game is already running in this channel.")
+    try:
+        await channel.set_permissions(
+            channel.guild.default_role, send_messages=True,
+            reason=f"Guess the Number: started by {starter}")
+    except discord.Forbidden:
+        return None, error_embed("I don't have permission to unlock this channel. Check my **Manage Channels** / **Manage Roles** permissions.")
+    active_guess_games[channel.id] = {
+        "number":     number,
+        "guild_id":   channel.guild.id,
+        "starter_id": starter.id,
+        "started_at": datetime.now(timezone.utc),
+    }
+    return _guess_number_embed(True, starter, channel), None
+
+async def _handle_guess_number_message(message: discord.Message):
+    game = active_guess_games.get(message.channel.id)
+    if not game:
+        return
+    content = message.content.strip()
+    if not re.fullmatch(r"-?\d+", content):
+        return
+    if int(content) != game["number"]:
+        return
+    del active_guess_games[message.channel.id]
+    try:
+        await message.channel.set_permissions(
+            message.guild.default_role, send_messages=False,
+            reason=f"Guess the Number: won by {message.author}, channel re-locked")
+    except discord.Forbidden:
+        pass
+    win_embed = discord.Embed(
+        title="🎯 Guess the Number — We Have a Winner!",
+        description=f"{message.author.mention} guessed it right! The number was **{game['number']}**.",
+        color=discord.Color.gold(),
+        timestamp=datetime.now(timezone.utc))
+    win_embed.set_footer(text="🔒 Channel locked")
+    try:
+        await message.reply(embed=win_embed, mention_author=True)
+    except discord.HTTPException:
+        await message.channel.send(content=message.author.mention, embed=win_embed)
+
+@bot.command(name="guessnumber", aliases=["gtn"])
+@require_cmd_role("guessnumber")
+async def guessnumber_cmd(ctx, number: int):
+    embed, err = await _start_guess_number(ctx.channel, ctx.author, number)
+    await ctx.send(embed=err if err else embed)
+
+@guessnumber_cmd.error
+async def guessnumber_cmd_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(embed=error_embed("Usage: `.guessnumber <number>` — e.g. `.guessnumber 42`"))
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send(embed=error_embed("The number must be a whole number, e.g. `.guessnumber 42`"))
+    elif isinstance(error, commands.CheckFailure):
+        await ctx.send(embed=error_embed("You don't have permission to start Guess the Number here."))
+
+@bot.tree.command(name="guessnumber", description="Start a Guess the Number game in this channel")
+@app_commands.describe(number="The secret number players must guess")
+@slash_cmd_role("guessnumber")
+async def guessnumber_slash(interaction: discord.Interaction, number: int):
+    embed, err = await _start_guess_number(interaction.channel, interaction.user, number)
+    await interaction.response.send_message(embed=err if err else embed)
 # ══════════════════════════════════════════════════════════════════════════════
 # ══════════════════════════════════════════════════════════════════════════════
 #  SPLIT OR STEAL
